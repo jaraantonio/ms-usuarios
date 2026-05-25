@@ -17,12 +17,11 @@ import com.perfulandia.usuarios.security.JwtAuthFilter;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity // CRÍTICO: Habilita el uso de @PreAuthorize en los endpoints
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
 
-    // Inyectamos el filtro JWT que creaste en la fase anterior
     public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
     }
@@ -43,11 +42,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Solo dejamos públicos los accesos iniciales
                         .requestMatchers("/api/v1/usuarios/registro", "/api/v1/usuarios/login",
                                 "/api/v1/usuarios/recuperar-password")
                         .permitAll()
-                        // Todo el resto del sistema EXIGE un JWT válido
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
