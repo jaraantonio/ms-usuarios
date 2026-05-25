@@ -12,11 +12,14 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "usuarios")
-@Data
+// @Getter y @Setter en lugar de @Data para evitar problemas de recursividad
+@Getter
+@Setter
 public class Usuario {
 
     @Id
@@ -24,17 +27,17 @@ public class Usuario {
     @Column(name = "id_usuario")
     private Integer idUsuario;
 
-    @Column(nullable = false, length = 254)
+    @Column(nullable = false, length = 100)
     private String nombre;
 
-    @Column(unique = true, nullable = false, length = 254)
+    @Column(unique = true, nullable = false, length = 100)
     private String correo;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 255)
     private String contrasena;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
     private Rol rol;
 
     @Column(nullable = false, length = 20)
@@ -45,4 +48,12 @@ public class Usuario {
 
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Cliente perfilCliente;
+
+    // metodo para relación bidireccional entre Usuario y Cliente
+    public void setPerfilCliente(Cliente cliente) {
+        if (cliente != null) {
+            cliente.setUsuario(this);
+        }
+        this.perfilCliente = cliente;
+    }
 }

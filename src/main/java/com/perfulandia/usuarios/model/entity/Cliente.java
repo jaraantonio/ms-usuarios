@@ -9,24 +9,24 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import lombok.Data;
-import lombok.ToString;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "clientes")
-@Data
+@Getter
+@Setter
 public class Cliente {
-
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cliente")
     private Integer idCliente;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 255)
     private String direccion;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_usuario", referencedColumnName = "id_usuario", nullable = false)
-    @ToString.Exclude
     private Usuario usuario;
 }
