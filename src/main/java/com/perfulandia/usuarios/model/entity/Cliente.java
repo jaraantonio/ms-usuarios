@@ -1,5 +1,6 @@
 package com.perfulandia.usuarios.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -17,7 +18,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Cliente {
-    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_cliente")
@@ -26,6 +26,7 @@ public class Cliente {
     @Column(nullable = false, length = 255)
     private String direccion;
 
+    @JsonIgnore
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_usuario", referencedColumnName = "id_usuario", nullable = false)
     private Usuario usuario;

@@ -1,5 +1,6 @@
 package com.perfulandia.usuarios.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.perfulandia.usuarios.model.enums.Rol;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -33,6 +34,7 @@ public class Usuario {
     @Column(unique = true, nullable = false, length = 100)
     private String correo;
 
+    @JsonIgnore
     @Column(nullable = false, length = 255)
     private String contrasena;
 
@@ -43,9 +45,11 @@ public class Usuario {
     @Column(nullable = false, length = 20)
     private String estado = "ACTIVO";
 
+    @JsonIgnore
     @Column(name = "intentos_fallidos")
     private int intentosFallidos = 0;
 
+    @JsonIgnore
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Cliente perfilCliente;
 
