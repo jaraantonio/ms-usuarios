@@ -43,4 +43,11 @@ public class GlobalExceptionHandler {
                 new ErrorResponse(LocalDateTime.now(), 404, "No Encontrado", ex.getMessage()),
                 HttpStatus.NOT_FOUND);
     }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
+        return new ResponseEntity<>(
+                new ErrorResponse(LocalDateTime.now(), 400, "Error de negocio", ex.getMessage()),
+                HttpStatus.BAD_REQUEST);
+    }
 }
