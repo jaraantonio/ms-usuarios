@@ -1,33 +1,21 @@
 package com.perfulandia.usuarios.model.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.perfulandia.usuarios.model.enums.EstadoUsuario;
 import com.perfulandia.usuarios.model.enums.Rol;
-
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
 @Table(name = "usuarios")
-// @Getter y @Setter en lugar de @Data para evitar problemas de recursividad
 @Getter
 @Setter
 public class Usuario {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_usuario")
-    private Integer idUsuario;
+    private Long idUsuario;
 
     @Column(nullable = false, length = 100)
     private String nombre;
@@ -43,8 +31,9 @@ public class Usuario {
     @Column(nullable = false, length = 30)
     private Rol rol;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String estado = "ACTIVO"; //to-do: crear enum EstadoUsuario
+    private EstadoUsuario estado = EstadoUsuario.ACTIVO;
 
     @JsonIgnore
     @Column(name = "intentos_fallidos")
@@ -54,10 +43,13 @@ public class Usuario {
     @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Cliente perfilCliente;
 
+    // Para ofuscar el método de pago (simplificado)
+    @Column(name = "metodo_pago_ofuscado", length = 50)
+    private String metodoPagoOfuscado;
+
     public void setPerfilCliente(Cliente cliente) {
-        if (cliente != null) {
+        if (cliente != null)
             cliente.setUsuario(this);
-        }
         this.perfilCliente = cliente;
     }
 }
