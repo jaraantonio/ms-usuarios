@@ -1,32 +1,17 @@
 package com.perfulandia.usuarios.controller;
 
-import java.security.Principal;
-import java.util.Map;
-
+import com.perfulandia.usuarios.model.dto.*;
+import com.perfulandia.usuarios.service.UsuarioService;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import com.perfulandia.usuarios.model.dto.ActualizarEmpleadoDTO;
-import com.perfulandia.usuarios.model.dto.ActualizarPerfilDTO;
-import com.perfulandia.usuarios.model.dto.CrearEmpleadoDTO;
-import com.perfulandia.usuarios.model.dto.PerfilResponseDTO;
-import com.perfulandia.usuarios.model.dto.RegistroRequestDTO;
-import com.perfulandia.usuarios.model.entity.Usuario;
-import com.perfulandia.usuarios.service.UsuarioService;
-
-import jakarta.validation.Valid;
+import java.security.Principal;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/usuarios")
@@ -51,7 +36,13 @@ public class UsuarioController {
 
     @PostMapping("/recuperar-password")
     public ResponseEntity<Void> solicitarRecuperacion(@RequestBody Map<String, String> request) {
-        service.procesarRecuperacion(request.get("correo"));
+        service.solicitarRecuperacion(request.get("correo"));
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/restablecer-password")
+    public ResponseEntity<Void> restablecerPassword(@Valid @RequestBody RestablecerPasswordRequestDTO dto) {
+        service.restablecerPassword(dto);
         return ResponseEntity.ok().build();
     }
 
@@ -59,6 +50,12 @@ public class UsuarioController {
     public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authHeader) {
         service.cerrarSesion(authHeader.substring(7));
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/perfil")
+    @PreAuthorize("hasRole('CLIENTE')")
+    public ResponseEntity<PerfilResponseDTO> obtenerPerfil(Principal principal) {
+        return ResponseEntity.ok(service.obtenerPerfil(principal.getName()));
     }
 
     @PutMapping("/perfil")
@@ -77,22 +74,23 @@ public class UsuarioController {
 
     @GetMapping("/admin/usuarios")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Page<Usuario>> listarUsuarios(Pageable pageable) {
+    public ResponseEntity<Page<PerfilResponseDTO>> listarUsuarios(Pageable pageable) {
         return ResponseEntity.ok(service.listarUsuarios(pageable));
     }
 
     @PutMapping("/admin/usuarios/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> actualizarEmpleado(@PathVariable Integer id,
-            @Valid @RequestBody ActualizarEmpleadoDTO dto, Principal principal) {
+    public ResponseEntity<Void> actualizarEmpleado(@PathVariable Long id,
+            @Valid @RequestBody ActualizarEmpleadoDTO dto,
+            Principal principal) {
         service.actualizarEmpleado(id, dto, principal.getName());
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/admin/usuarios/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> desactivarUsuario(@PathVariable Integer id) {
-        service.desactivarCuenta(id);
+    public ResponseEntity<Void> desactivarUsuario(@PathVariable Long id, Principal principal) {
+        service.desactivarCuenta(id, principal.getName());
         return ResponseEntity.noContent().build();
     }
 }

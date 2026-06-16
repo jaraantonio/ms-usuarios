@@ -1,8 +1,15 @@
 package com.perfulandia.usuarios.service;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
-
+import com.perfulandia.usuarios.exception.CredencialesInvalidasException;
+import com.perfulandia.usuarios.exception.RecursoDuplicadoException;
+import com.perfulandia.usuarios.exception.RecursoNoEncontradoException;
+import com.perfulandia.usuarios.model.dto.*;
+import com.perfulandia.usuarios.model.entity.*;
+import com.perfulandia.usuarios.model.enums.EstadoUsuario;
+import com.perfulandia.usuarios.model.enums.Rol;
+import com.perfulandia.usuarios.repository.TokenInvalidadoRepository;
+import com.perfulandia.usuarios.repository.TokenRecuperacionRepository;
+import com.perfulandia.usuarios.repository.UsuarioRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -11,28 +18,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.perfulandia.usuarios.exception.CredencialesInvalidasException;
-import com.perfulandia.usuarios.exception.RecursoDuplicadoException;
-import com.perfulandia.usuarios.exception.RecursoNoEncontradoException;
-import com.perfulandia.usuarios.model.dto.ActualizarEmpleadoDTO;
-import com.perfulandia.usuarios.model.dto.ActualizarPerfilDTO;
-import com.perfulandia.usuarios.model.dto.CrearEmpleadoDTO;
-import com.perfulandia.usuarios.model.dto.PerfilResponseDTO;
-import com.perfulandia.usuarios.model.dto.RegistroRequestDTO;
-import com.perfulandia.usuarios.model.entity.Cliente;
-import com.perfulandia.usuarios.model.entity.TokenInvalidado;
-import com.perfulandia.usuarios.model.entity.TokenRecuperacion;
-import com.perfulandia.usuarios.model.entity.Usuario;
-import com.perfulandia.usuarios.model.enums.Rol;
-import com.perfulandia.usuarios.repository.TokenInvalidadoRepository;
-import com.perfulandia.usuarios.repository.TokenRecuperacionRepository;
-import com.perfulandia.usuarios.repository.UsuarioRepository;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 public class UsuarioService {
 
     private static final Logger log = LoggerFactory.getLogger(UsuarioService.class);
-
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -51,24 +43,25 @@ public class UsuarioService {
 
     @Transactional
     public PerfilResponseDTO registrarCliente(RegistroRequestDTO dto) {
-        if (usuarioRepository.findByCorreo(dto.correo()).isPresent()) {
-            throw new RecursoDuplicadoException("El correo ingresado ya se encuentra en uso.");
-        }
+        if (usuarioRepository.findByCorreo(dto.correo()).isPresent())
+            throw new RecursoDuplicadoException("El correo ya está registrado.");
 
         Usuario usuario = new Usuario();
         usuario.setNombre(dto.nombre());
         usuario.setCorreo(dto.correo());
         usuario.setContrasena(passwordEncoder.encode(dto.contrasena()));
         usuario.setRol(Rol.CLIENTE);
-        usuario.setEstado("ACTIVO");
+        usuario.setEstado(EstadoUsuario.ACTIVO);
 
         Cliente cliente = new Cliente();
         cliente.setDireccion(dto.direccion());
         usuario.setPerfilCliente(cliente);
 
         Usuario guardado = usuarioRepository.save(usuario);
-        return new PerfilResponseDTO(guardado.getIdUsuario(), guardado.getNombre(), guardado.getCorreo(),
-                guardado.getRol(), guardado.getPerfilCliente().getDireccion(), "**** **** **** 1234");
+        return new PerfilResponseDTO(guardado.getIdUsuario(), guardado.getNombre(),
+                guardado.getCorreo(), guardado.getRol(),
+                guardado.getPerfilCliente().getDireccion(),
+                guardado.getMetodoPagoOfuscado() != null ? guardado.getMetodoPagoOfuscado() : "**** **** **** 1234");
     }
 
     @Transactional(noRollbackFor = CredencialesInvalidasException.class)
@@ -76,9 +69,8 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findByCorreo(correo)
                 .orElseThrow(() -> new CredencialesInvalidasException("Credenciales incorrectas."));
 
-        if ("INACTIVO".equals(usuario.getEstado())) {
-            throw new CredencialesInvalidasException("La cuenta se encuentra bloqueada.");
-        }
+        if (usuario.getEstado() == EstadoUsuario.INACTIVO)
+            throw new CredencialesInvalidasException("Cuenta bloqueada.");
 
         if (!passwordEncoder.matches(contrasenaPlana, usuario.getContrasena())) {
             manejarIntentoFallido(usuario);
@@ -87,15 +79,14 @@ public class UsuarioService {
 
         usuario.setIntentosFallidos(0);
         usuarioRepository.save(usuario);
-
         return jwtService.generarToken(usuario.getCorreo(), usuario.getRol().name());
     }
 
     private void manejarIntentoFallido(Usuario usuario) {
         usuario.setIntentosFallidos(usuario.getIntentosFallidos() + 1);
         if (usuario.getIntentosFallidos() >= 3) {
-            usuario.setEstado("INACTIVO");
-            log.warn("Bloqueo de seguridad activado para el usuario: {}", usuario.getCorreo());
+            usuario.setEstado(EstadoUsuario.INACTIVO);
+            log.warn("Cuenta bloqueada por 3 intentos fallidos: {}", usuario.getCorreo());
         }
         usuarioRepository.save(usuario);
     }
@@ -104,72 +95,121 @@ public class UsuarioService {
     public void actualizarPerfil(String correo, ActualizarPerfilDTO dto) {
         Usuario usuario = usuarioRepository.findByCorreo(correo)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado."));
-
         usuario.setNombre(dto.nombre());
-        if (usuario.getPerfilCliente() != null) {
+        if (usuario.getPerfilCliente() != null)
             usuario.getPerfilCliente().setDireccion(dto.direccion());
+
+        if (dto.nuevoMetodoPago() != null && !dto.nuevoMetodoPago().isBlank()) {
+            log.info("simulando validación de tarjeta con pasarela externa");
+            String ofuscado = "**** **** **** "
+                    + dto.nuevoMetodoPago().substring(Math.max(0, dto.nuevoMetodoPago().length() - 4));
+            usuario.setMetodoPagoOfuscado(ofuscado);
         }
-        log.info("Simulando conexion segura con pasarela externa para validar tarjeta...");
+        usuarioRepository.save(usuario);
     }
 
     @Transactional
     public String crearEmpleado(CrearEmpleadoDTO dto) {
-        if (usuarioRepository.findByCorreo(dto.correo()).isPresent()) {
-            throw new RecursoDuplicadoException("El correo ya esta en uso.");
-        }
-        String passwordTemporal = UUID.randomUUID().toString().substring(0, 8) + "A1!";
+        if (usuarioRepository.findByCorreo(dto.correo()).isPresent())
+            throw new RecursoDuplicadoException("El correo ya está en uso.");
 
+        String passwordTemporal = generarPasswordSegura();
         Usuario usuario = new Usuario();
         usuario.setNombre(dto.nombre());
         usuario.setCorreo(dto.correo());
         usuario.setContrasena(passwordEncoder.encode(passwordTemporal));
         usuario.setRol(dto.rol());
-        usuario.setEstado("ACTIVO");
+        usuario.setEstado(EstadoUsuario.ACTIVO);
 
         usuarioRepository.save(usuario);
         return passwordTemporal;
     }
 
-    public Page<Usuario> listarUsuarios(Pageable pageable) {
-        return usuarioRepository.findAll(pageable);
+    private String generarPasswordSegura() {
+        String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lower = "abcdefghijklmnopqrstuvwxyz";
+        String digits = "0123456789";
+        String all = upper + lower + digits;
+        StringBuilder sb = new StringBuilder();
+        sb.append(upper.charAt((int) (Math.random() * upper.length())));
+        sb.append(lower.charAt((int) (Math.random() * lower.length())));
+        sb.append(digits.charAt((int) (Math.random() * digits.length())));
+        for (int i = 0; i < 5; i++)
+            sb.append(all.charAt((int) (Math.random() * all.length())));
+        return sb.toString();
+    }
+
+    public Page<PerfilResponseDTO> listarUsuarios(Pageable pageable) {
+        return usuarioRepository.findAll(pageable).map(u -> new PerfilResponseDTO(
+                u.getIdUsuario(), u.getNombre(), u.getCorreo(), u.getRol(),
+                u.getPerfilCliente() != null ? u.getPerfilCliente().getDireccion() : null,
+                u.getMetodoPagoOfuscado()));
     }
 
     @Transactional
-    public void actualizarEmpleado(Integer id, ActualizarEmpleadoDTO dto, String correoAdmin) {
+    public void actualizarEmpleado(Long id, ActualizarEmpleadoDTO dto, String correoAdmin) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado."));
 
-        if (usuario.getCorreo().equals(correoAdmin) && dto.rol() != Rol.ADMIN) {
-            throw new RuntimeException("Un admin no puede quitarse su propio rol.");
+        // evita que el administrador se degrade o cambie su rol
+        if (usuario.getCorreo().equals(correoAdmin) && !dto.rol().equals(usuario.getRol())) {
+            throw new RuntimeException("Un administrador no puede cambiar su propio rol.");
         }
-
         usuario.setNombre(dto.nombre());
         usuario.setCorreo(dto.correo());
         usuario.setRol(dto.rol());
+        usuarioRepository.save(usuario);
     }
 
     @Transactional
-    public void desactivarCuenta(Integer id) {
+    public void desactivarCuenta(Long id, String correoAdmin) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado."));
-        usuario.setEstado("INACTIVO");
+        if (usuario.getCorreo().equals(correoAdmin))
+            throw new RuntimeException("Un administrador no puede desactivar su propia cuenta.");
+        usuario.setEstado(EstadoUsuario.INACTIVO);
+        usuarioRepository.save(usuario);
     }
 
     @Transactional
-    public void procesarRecuperacion(String correo) {
+    public void solicitarRecuperacion(String correo) {
         usuarioRepository.findByCorreo(correo).ifPresent(usuario -> {
             TokenRecuperacion tr = new TokenRecuperacion();
             tr.setCorreo(correo);
             tr.setToken(UUID.randomUUID().toString());
             tr.setExpiracion(LocalDateTime.now().plusMinutes(15));
             tokenRecuperacionRepository.save(tr);
-            log.info("Correo de recuperación enviado a {} con token {}", correo, tr.getToken());
+            log.info("Token de recuperación generado para {}: {}", correo, tr.getToken());
+            // simula log de envío de correo
         });
     }
 
     @Transactional
+    public void restablecerPassword(RestablecerPasswordRequestDTO dto) {
+        TokenRecuperacion tokenRec = tokenRecuperacionRepository.findByToken(dto.token())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Token inválido o expirado."));
+        if (tokenRec.getExpiracion().isBefore(LocalDateTime.now()))
+            throw new RuntimeException("El token ha expirado.");
+
+        Usuario usuario = usuarioRepository.findByCorreo(tokenRec.getCorreo())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado."));
+        usuario.setContrasena(passwordEncoder.encode(dto.nuevaContrasena()));
+        usuarioRepository.save(usuario);
+
+        tokenRecuperacionRepository.delete(tokenRec); // eliminar token usado
+        log.info("Contraseña restablecida para {}", tokenRec.getCorreo());
+    }
+
+    @Transactional
     public void cerrarSesion(String token) {
-        TokenInvalidado invalidado = new TokenInvalidado(token, LocalDateTime.now());
-        tokenInvalidadoRepository.save(invalidado);
+        tokenInvalidadoRepository.save(new TokenInvalidado(token, LocalDateTime.now()));
+    }
+
+    public PerfilResponseDTO obtenerPerfil(String correo) {
+        Usuario usuario = usuarioRepository.findByCorreo(correo)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado."));
+        String direccion = usuario.getPerfilCliente() != null ? usuario.getPerfilCliente().getDireccion() : null;
+        return new PerfilResponseDTO(usuario.getIdUsuario(), usuario.getNombre(), usuario.getCorreo(),
+                usuario.getRol(), direccion, usuario.getMetodoPagoOfuscado());
     }
 }
