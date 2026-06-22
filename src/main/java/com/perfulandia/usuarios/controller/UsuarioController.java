@@ -2,7 +2,13 @@ package com.perfulandia.usuarios.controller;
 
 import com.perfulandia.usuarios.model.dto.*;
 import com.perfulandia.usuarios.service.UsuarioService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -10,87 +16,214 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
-import java.util.Map;
-
 @RestController
-@RequestMapping("/api/v1/usuarios")
+@RequestMapping("/api")
+@RequiredArgsConstructor
+@Tag(name = "Usuarios", description = "API de gestión de usuarios y autenticación - Perfulandia SPA")
 public class UsuarioController {
 
-    private final UsuarioService service;
+    private final UsuarioService usuarioService;
 
-    public UsuarioController(UsuarioService service) {
-        this.service = service;
+    // ============================================================
+    // HU-01: Registro de cliente
+    // ============================================================
+    @Operation(
+            summary = "Registrar nuevo cliente",
+            description = "Crea una cuenta de usuario con rol CLIENTE. La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas y números."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Cliente registrado exitosamente"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos o correo duplicado")
+    })
+    @PostMapping("/auth/registro")
+    public ResponseEntity<PerfilResponseDTO> registrarCliente(@Valid @RequestBody RegistroRequestDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.registrarCliente(dto));
     }
 
-    @PostMapping("/registro")
-    public ResponseEntity<PerfilResponseDTO> registrar(@Valid @RequestBody RegistroRequestDTO dto) {
-        return new ResponseEntity<>(service.registrarCliente(dto), HttpStatus.CREATED);
+    // ============================================================
+    // HU-02: Login
+    // ============================================================
+    @Operation(
+            summary = "Iniciar sesión",
+            description = "Autentica al usuario con email y contraseña. Retorna token JWT con vigencia de 1 hora. Bloquea la cuenta tras 3 intentos fallidos."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Login exitoso, retorna token JWT"),
+            @ApiResponse(responseCode = "401", description = "Credenciales inválidas o cuenta bloqueada")
+    })
+    @PostMapping("/auth/login")
+    public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginRequestDTO dto) {
+        return ResponseEntity.ok(usuarioService.autenticar(dto));
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> credenciales) {
-        String token = service.iniciarSesion(credenciales.get("correo"), credenciales.get("contrasena"));
-        return ResponseEntity.ok(Map.of("token", token));
+    // ============================================================
+    // HU-03: Obtener perfil
+    // ============================================================
+    @Operation(
+            summary = "Obtener perfil",
+            description = "Obtiene los datos del perfil del usuario autenticado. Valida que el ID del token coincida con el ID solicitado."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Perfil obtenido exitosamente"),
+            @ApiResponse(responseCode = "401", description = "Token no válido o expirado"),
+            @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/usuarios/perfil")
+    public ResponseEntity<PerfilResponseDTO> obtenerPerfil(@RequestAttribute("userId") Long userId) {
+        return ResponseEntity.ok(usuarioService.obtenerPerfil(userId));
     }
 
-    @PostMapping("/recuperar-password")
-    public ResponseEntity<Void> solicitarRecuperacion(@RequestBody Map<String, String> request) {
-        service.solicitarRecuperacion(request.get("correo"));
+    // ============================================================
+    // HU-04: Actualizar perfil
+    // ============================================================
+    @Operation(
+            summary = "Actualizar perfil",
+            description = "Actualiza nombre, dirección y método de pago del usuario autenticado. El método de pago se ofusca antes de guardar."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Perfil actualizado exitosamente"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos"),
+            @ApiResponse(responseCode = "401", description = "Token no válido")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @PutMapping("/usuarios/perfil")
+    public ResponseEntity<PerfilResponseDTO> actualizarPerfil(
+            @RequestAttribute("userId") Long userId,
+            @Valid @RequestBody ActualizarPerfilDTO dto) {
+        return ResponseEntity.ok(usuarioService.actualizarPerfil(userId, dto));
+    }
+
+    // ============================================================
+    // HU-45: Cerrar sesión
+    // ============================================================
+    @Operation(
+            summary = "Cerrar sesión",
+            description = "Invalida el token JWT actual agregándolo a la blacklist. Peticiones posteriores con este token serán rechazadas."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Sesión cerrada exitosamente"),
+            @ApiResponse(responseCode = "401", description = "Token no válido")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/auth/logout")
+    public ResponseEntity<Void> cerrarSesion(@RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        usuarioService.cerrarSesion(token);
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/restablecer-password")
-    public ResponseEntity<Void> restablecerPassword(@Valid @RequestBody RestablecerPasswordRequestDTO dto) {
-        service.restablecerPassword(dto);
-        return ResponseEntity.ok().build();
+    // ============================================================
+    // HU-44a: Recuperar contraseña
+    // ============================================================
+    @Operation(
+            summary = "Recuperar contraseña",
+            description = "Solicita un token de recuperación de contraseña. Si el correo existe, genera un token con expiración de 15 minutos. Por seguridad, siempre retorna HTTP 200."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Solicitud procesada (el token se retorna en la respuesta para simulación)")
+    })
+    @PostMapping("/auth/recuperar")
+    public ResponseEntity<String> recuperarPassword(@Valid @RequestBody CorreoRequestDTO dto) {
+        return ResponseEntity.ok(usuarioService.recuperarPassword(dto.correo()));
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authHeader) {
-        service.cerrarSesion(authHeader.substring(7));
-        return ResponseEntity.ok().build();
+    // ============================================================
+    // HU-44b: Restablecer contraseña
+    // ============================================================
+    @Operation(
+            summary = "Restablecer contraseña",
+            description = "Restablece la contraseña usando un token de recuperación válido y no expirado. El token se invalida tras su uso."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Contraseña restablecida exitosamente"),
+            @ApiResponse(responseCode = "400", description = "Token inválido, expirado o ya usado")
+    })
+    @PostMapping("/auth/restablecer")
+    public ResponseEntity<String> restablecerPassword(@Valid @RequestBody RestablecerPasswordRequestDTO dto) {
+        usuarioService.restablecerPassword(dto);
+        return ResponseEntity.ok("Contraseña restablecida exitosamente");
     }
 
-    @GetMapping("/perfil")
-    @PreAuthorize("hasRole('CLIENTE')")
-    public ResponseEntity<PerfilResponseDTO> obtenerPerfil(Principal principal) {
-        return ResponseEntity.ok(service.obtenerPerfil(principal.getName()));
-    }
-
-    @PutMapping("/perfil")
-    @PreAuthorize("hasRole('CLIENTE')")
-    public ResponseEntity<Void> actualizarPerfil(@Valid @RequestBody ActualizarPerfilDTO dto, Principal principal) {
-        service.actualizarPerfil(principal.getName(), dto);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/admin/empleados")
+    // ============================================================
+    // HU-06: Listar usuarios (ADMIN)
+    // ============================================================
+    @Operation(
+            summary = "Listar usuarios",
+            description = "Lista paginada de todos los usuarios del sistema. Permite filtrar por rol y/o estado. Solo ADMIN."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lista de usuarios retornada exitosamente"),
+            @ApiResponse(responseCode = "401", description = "Token no válido"),
+            @ApiResponse(responseCode = "403", description = "Acceso denegado (no es ADMIN)")
+    })
+    @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, String>> crearEmpleado(@Valid @RequestBody CrearEmpleadoDTO dto) {
-        String temporal = service.crearEmpleado(dto);
-        return new ResponseEntity<>(Map.of("passwordTemporal", temporal), HttpStatus.CREATED);
+    @GetMapping("/usuarios")
+    public ResponseEntity<Page<PerfilResponseDTO>> listarUsuarios(
+            Pageable pageable,
+            @RequestParam(required = false) String rol,
+            @RequestParam(required = false) String estado) {
+        return ResponseEntity.ok(usuarioService.listarUsuarios(pageable, rol, estado));
     }
 
-    @GetMapping("/admin/usuarios")
+    // ============================================================
+    // HU-05: Crear usuario (ADMIN)
+    // ============================================================
+    @Operation(
+            summary = "Crear usuario",
+            description = "Crea un nuevo usuario en el sistema asignando rol y generando contraseña temporal. Solo ADMIN."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Usuario creado exitosamente"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos o correo duplicado"),
+            @ApiResponse(responseCode = "403", description = "Acceso denegado (no es ADMIN)")
+    })
+    @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Page<PerfilResponseDTO>> listarUsuarios(Pageable pageable) {
-        return ResponseEntity.ok(service.listarUsuarios(pageable));
+    @PostMapping("/usuarios")
+    public ResponseEntity<PerfilResponseDTO> crearUsuarioAdmin(@Valid @RequestBody CrearEmpleadoDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearUsuarioAdmin(dto));
     }
 
-    @PutMapping("/admin/usuarios/{id}")
+    // ============================================================
+    // HU-07: Actualizar usuario (ADMIN)
+    // ============================================================
+    @Operation(
+            summary = "Actualizar usuario",
+            description = "Modifica nombre, email y rol de un usuario. Previene que un ADMIN se quite su propio rol. Solo ADMIN."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usuario actualizado exitosamente"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos o restricción de negocio"),
+            @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
+    })
+    @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> actualizarEmpleado(@PathVariable Long id,
-            @Valid @RequestBody ActualizarEmpleadoDTO dto,
-            Principal principal) {
-        service.actualizarEmpleado(id, dto, principal.getName());
+    @PutMapping("/usuarios/{id}")
+    public ResponseEntity<PerfilResponseDTO> actualizarUsuarioAdmin(
+            @PathVariable Long id,
+            @Valid @RequestBody ActualizarEmpleadoDTO dto) {
+        return ResponseEntity.ok(usuarioService.actualizarUsuarioAdmin(id, dto));
+    }
+
+    // ============================================================
+    // HU-08: Desactivar usuario (ADMIN) - borrado lógico
+    // ============================================================
+    @Operation(
+            summary = "Desactivar usuario",
+            description = "Realiza un borrado lógico (cambia estado a INACTIVO). No se puede desactivar a un ADMIN. Solo ADMIN."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usuario desactivado exitosamente"),
+            @ApiResponse(responseCode = "400", description = "No se puede desactivar ADMIN"),
+            @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/usuarios/{id}")
+    public ResponseEntity<Void> desactivarUsuario(@PathVariable Long id) {
+        usuarioService.desactivarUsuario(id);
         return ResponseEntity.ok().build();
-    }
-
-    @DeleteMapping("/admin/usuarios/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> desactivarUsuario(@PathVariable Long id, Principal principal) {
-        service.desactivarCuenta(id, principal.getName());
-        return ResponseEntity.noContent().build();
     }
 }
