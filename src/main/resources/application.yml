@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: ms-usuarios
+
+  # Base de datos MySQL - perfulandia_usuarios
+  datasource:
+    url: jdbc:mysql://localhost:3306/perfulandia_usuarios?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Santiago
+    username: root
+    password: 1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # JPA / Hibernate
+  jpa:
+    hibernate:
+      "ddl-auto": validate
+    show-sql: true
+    properties:
+      hibernate:
+        "[format_sql]": true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  # Flyway
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+server:
+  port: 8081
+
+# JWT
+jwt:
+  secret: ${JWT_SECRET:perfulandiaclavesecreta123456789}
+  expiration: 3600000
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+# MS Notificaciones (WebClient)
+ms-notificaciones:
+  url: http://localhost:8088
+
+# Swagger
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs

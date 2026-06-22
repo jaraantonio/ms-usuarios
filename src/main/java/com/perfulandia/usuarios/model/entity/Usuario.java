@@ -1,31 +1,34 @@
 package com.perfulandia.usuarios.model.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.perfulandia.usuarios.model.enums.EstadoUsuario;
 import com.perfulandia.usuarios.model.enums.Rol;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "usuarios")
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Usuario {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_usuario")
-    private Long idUsuario;
+    @EqualsAndHashCode.Include
+    private Long id;
 
     @Column(nullable = false, length = 100)
     private String nombre;
 
-    @Column(unique = true, nullable = false, length = 100)
-    private String correo;
+    @Column(nullable = false, unique = true, length = 150)
+    private String email;
 
-    @JsonIgnore
     @Column(nullable = false, length = 255)
-    private String contrasena;
+    private String password;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -33,23 +36,30 @@ public class Usuario {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private EstadoUsuario estado = EstadoUsuario.ACTIVO;
+    private EstadoUsuario estado;
 
-    @JsonIgnore
-    @Column(name = "intentos_fallidos")
-    private int intentosFallidos = 0;
+    @Column(name = "intentos_fallidos", nullable = false)
+    private Integer intentosFallidos = 0;
 
-    @JsonIgnore
-    @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Cliente perfilCliente;
+    @Column(length = 500)
+    private String direccion;
 
-    // Para ofuscar el método de pago (simplificado)
-    @Column(name = "metodo_pago_ofuscado", length = 50)
+    @Column(name = "metodo_pago_ofuscado", length = 500)
     private String metodoPagoOfuscado;
 
-    public void setPerfilCliente(Cliente cliente) {
-        if (cliente != null)
-            cliente.setUsuario(this);
-        this.perfilCliente = cliente;
+    @Column(name = "fecha_registro", nullable = false, updatable = false)
+    private LocalDateTime fechaRegistro;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.fechaRegistro == null) {
+            this.fechaRegistro = LocalDateTime.now();
+        }
+        if (this.intentosFallidos == null) {
+            this.intentosFallidos = 0;
+        }
+        if (this.estado == null) {
+            this.estado = EstadoUsuario.ACTIVO;
+        }
     }
 }
