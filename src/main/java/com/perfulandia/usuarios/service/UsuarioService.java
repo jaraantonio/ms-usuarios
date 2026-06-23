@@ -146,13 +146,13 @@ public class UsuarioService {
             notificacionesWebClient.enviarCorreo(new CorreoRequestDTO(email));
         });
 
-        // Siempre retorna el mismo mensaje (no revela si el correo existe)
-        return "Si el correo existe, se ha generado un token de recuperación. Token: " +
-                tokenRecuperacionRepository.findAll().stream()
-                        .filter(t -> t.getCorreo().equals(email) && !t.isUsado())
-                        .findFirst()
-                        .map(TokenRecuperacion::getToken)
-                        .orElse("(simulado)");
+        // Devuelve el token si existe, o un UUID simulado (no revela si el correo existe)
+        String token = tokenRecuperacionRepository.findAll().stream()
+                .filter(t -> t.getCorreo().equals(email) && !t.isUsado())
+                .findFirst()
+                .map(TokenRecuperacion::getToken)
+                .orElse(UUID.randomUUID().toString());
+        return token;
     }
 
     // ============================================================
@@ -284,6 +284,10 @@ public class UsuarioService {
 
         if (usuario.getRol() == Rol.ADMIN) {
             throw new IllegalArgumentException("No se puede desactivar a un usuario ADMIN");
+        }
+
+        if (usuario.getEstado() == EstadoUsuario.INACTIVO) {
+            throw new IllegalArgumentException("El usuario ya se encuentra inactivo");
         }
 
         usuario.setEstado(EstadoUsuario.INACTIVO);

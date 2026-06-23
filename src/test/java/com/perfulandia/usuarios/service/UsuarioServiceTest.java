@@ -296,9 +296,9 @@ class UsuarioServiceTest {
             // When
             String result = usuarioService.recuperarPassword("noexiste@test.com");
 
-            // Then
+            // Then — siempre retorna un UUID (no revela si el correo existe)
             assertNotNull(result);
-            assertTrue(result.contains("simulado"));
+            assertFalse(result.isBlank());
             verify(notificacionesWebClient, never()).enviarCorreo(any());
         }
 
