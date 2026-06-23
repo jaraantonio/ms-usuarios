@@ -1,285 +1,266 @@
-# Microservicio de Usuarios (ms-usuarios)
+# Microservicio Usuarios y Autenticación
 
 ## Descripción
-Microservicio de gestión de identidades, autenticación JWT, roles (ADMIN, CLIENTE, EMPLEADO, GERENTE) y recuperación de contraseña.  
-Cumple con las historias de usuario HU-01 a HU-09, HU-44, HU-45.
+
+Microservicio de gestión de identidades, autenticación JWT, roles y recuperación de contraseña para Perfulandia SPA.
+
+- Historias de usuario: HU-01 a HU-09, HU-44 y HU-45.
+- Swagger/OpenAPI disponible en: http://localhost:8081/swagger-ui.html
 
 ## Estudiante
+
 Antonio Jara
 
 ## Tecnologías
-- Java 25, Spring Boot 4.0.6, Spring Security, JWT, JPA/Hibernate, MariaDB/MySQL, Maven.
 
-## Endpoints principales
+- Java 25, Spring Boot 4.1.0, Spring Security, JWT (jjwt 0.12.5), JPA/Hibernate
+- MariaDB 11.8 (compatible con MySQL 8.x para Duoc/XAMPP)
+- Maven, Flyway (scripts en `db/migration/V1__perfulandia_usuarios.sql` — desactivado temporalmente porque MariaDB 11.8 no es compatible con Flyway 12.x; en Duoc con MySQL 8.x funciona activando `enabled: true` + `ddl-auto: validate`), Swagger/OpenAPI
 
-### Públicos
-- `POST /api/v1/usuarios/registro` - Registrar cliente.
-- `POST /api/v1/usuarios/login` - Iniciar sesión → retorna JWT.
-- `POST /api/v1/usuarios/recuperar-password` - Solicitar token de recuperación.
-- `POST /api/v1/usuarios/restablecer-password` - Restablecer contraseña con token.
+## Usuarios de prueba (poblado de la BD con data.sql)
 
-### Autenticados (requieren token)
-- `GET /api/v1/usuarios/perfil` - Ver perfil propio (rol CLIENTE).
-- `PUT /api/v1/usuarios/perfil` - Actualizar nombre, dirección y método de pago.
-- `POST /api/v1/usuarios/logout` - Invalidar token.
+Al iniciar la aplicación se insertan automáticamente 5 usuarios, uno por cada rol. Contraseña de todos: **Pass1234** (para facilitar las pruebas).
 
-### Administración (rol ADMIN)
-- `POST /admin/empleados` - Crear empleado (retorna contraseña temporal).
-- `GET /admin/usuarios` - Listado paginado de usuarios.
-- `PUT /admin/usuarios/{id}` - Actualizar empleado (nombre, correo, rol).
-- `DELETE /admin/usuarios/{id}` - Desactivar usuario (borrado lógico).
+| Nombre     | Email                     | Rol       |
+|------------|---------------------------|-----------|
+| Admin      | admin@perfulandia.cl      | ADMIN     |
+| Gerente    | gerente@perfulandia.cl    | GERENTE   |
+| Empleado   | empleado@perfulandia.cl   | EMPLEADO  |
+| Logística  | logistica@perfulandia.cl  | LOGISTICA |
+| Cliente    | cliente@gmail.com         | CLIENTE   |
 
-## Configuración de base de datos
-La BD se crea automáticamente con `ddl-auto=update`. Credenciales en `application.properties`.
+## Endpoints
+
+### Públicos (sin autenticación)
+
+| Método | Ruta                    | HU    | Descripción                              |
+|--------|-------------------------|-------|------------------------------------------|
+| POST   | `/api/auth/registro`    | HU-01 | Registrar cliente                        |
+| POST   | `/api/auth/login`       | HU-02 | Iniciar sesión → retorna JWT + rol       |
+| POST   | `/api/auth/recuperar`   | HU-44a| Solicitar token de recuperación          |
+| POST   | `/api/auth/restablecer` | HU-44b| Restablecer contraseña con token         |
+
+### Autenticados (requieren token Bearer)
+
+| Método | Ruta                    | HU    | Descripción                   |
+|--------|-------------------------|-------|-------------------------------|
+| GET    | `/api/usuarios/perfil`  | HU-03 | Ver perfil propio             |
+| PUT    | `/api/usuarios/perfil`  | HU-04 | Actualizar nombre, dirección y método de pago |
+| POST   | `/api/auth/logout`      | HU-45 | Cerrar sesión (invalida token) |
+
+### Administración (requieren token Bearer con rol ADMIN)
+
+| Método | Ruta                    | HU    | Descripción                        |
+|--------|-------------------------|-------|------------------------------------|
+| GET    | `/api/usuarios`         | HU-06 | Listar usuarios (paginado, filtros por `?rol=` y `?estado=`) |
+| POST   | `/api/usuarios`         | HU-05 | Crear empleado (contraseña temporal automática) |
+| PUT    | `/api/usuarios/{id}`    | HU-07 | Actualizar usuario (nombre, email, rol) |
+| DELETE | `/api/usuarios/{id}`    | HU-08 | Desactivar usuario (borrado lógico) |
 
 ## Ejecución
+
 ```bash
 ./mvnw spring-boot:run
 ```
-El servidor corre en http://localhost:8081.
 
-# PRUEBAS POSTMAN
+El servidor corre en **http://localhost:8081**.
 
-- Microservicio `ms-usuarios` corriendo en `http://localhost:8081`.
-- Ejecutar en orden
+## Pruebas automatizadas
 
-## Pruebas con Cliente
+### Tests unitarios (JUnit)
 
-### 1. **Registro de cliente (HU-01)**
-- **Endpoint:** `POST /api/v1/usuarios/registro`
-- **Body:**
-```json
-{
-  "nombre": "Luis Jara",
-  "correo": "luchojara@prueba.cl",
-  "contrasena": "Pass1234",
-  "direccion": "Calle 123"
-}
+```bash
+./mvnw test
 ```
-- **Respuesta esperada:**  
-  `201 Created` y JSON con la siguiente estructura:
+
+### Tests de integración HTTP (todos los endpoints)
+
+```bash
+./http/run_tests.sh           # Ejecuta 18 requests, verifica códigos HTTP
+./http/run_tests.sh --verbose # Muestra cuerpo de cada respuesta
+```
+
+Los 18 requests están documentados en [http/ms-usuarios.http](http/ms-usuarios.http), usables también manualmente desde VS Code con la extensión REST Client.
+
+## Estructura de requests y respuestas
+
+### POST /api/auth/registro
+
 ```json
+// Request
 {
-  "idUsuario": 1,
-  "nombre": "Luis Jara",
-  "correo": "luchojara@prueba.cl",
+  "nombre": "Andrea Vega",
+  "email": "andrea.vega@gmail.com",
+  "password": "AndreaV123",
+  "direccion": "Av. Las Condes 456, Santiago"
+}
+
+// Response: 201 Created
+{
+  "id": 1,
+  "nombre": "Andrea Vega",
+  "email": "andrea.vega@gmail.com",
   "rol": "CLIENTE",
-  "direccion": "Calle 123",
-  "metodoPagoOfuscado": "null"
+  "estado": "ACTIVO",
+  "direccion": "Av. Las Condes 456, Santiago",
+  "metodoPagoOfuscado": "****"
 }
 ```
-- **Validaciones:**  
-  - Contraseña con mayúscula, minúscula y número (patrón validado en DTO).  
-  - Correo único.  
-  - Dirección obligatoria.
 
-### 2. **Registro con correo duplicado**
-- **Mismo endpoint** con el mismo `correo: "luchojara@prueba.cl"`.
-- **Respuesta esperada:** `409 Conflict` con mensaje `"El correo ya está registrado."`
+**Validaciones:**
+- Email único (409 Conflict si duplicado)
+- Password: mínimo 8 caracteres, debe incluir mayúscula, minúscula y número (400 Bad Request si no cumple)
+- Todos los campos obligatorios: nombre, email, password, dirección
 
-### 3. **Registro con contraseña débil**
-- **Body:** misma estructura pero `"contrasena": "1234"`.
-- **Respuesta esperada:** `400 Bad Request` con error de validación indicando requisitos para la contraseña.
+### POST /api/auth/login
 
-### 4. **Inicio de sesión correcto (HU-02)**
-- **Endpoint:** `POST /api/v1/usuarios/login`
-- **Body:**
 ```json
+// Request
 {
-  "correo": "luchojara@prueba.cl",
-  "contrasena": "Pass1234"
+  "email": "admin@perfulandia.cl",
+  "password": "Pass1234"
+}
+
+// Response: 200 OK
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "rol": "ADMIN"
 }
 ```
-- **Respuesta esperada:** `200 OK` con `{ "token": "eyJhbGciOiJ..." }`
 
-### 5. **Inicio de sesión con credenciales incorrectas (primer intento)**
-- **Body:** misma estructura pero con contraseña incorrecta.
-- **Respuesta esperada:** `401 Unauthorized` con mensaje `"Credenciales incorrectas."`
+**Reglas de negocio:**
+- 3 intentos fallidos consecutivos → cuenta bloqueada (estado INACTIVO)
+- Login exitoso resetea el contador de intentos fallidos
+- Credenciales incorrectas → 401 Unauthorized
 
-### 6. **Dos intentos fallidos adicionales (segundo y tercero)**
-- Repite el paso 5 dos veces más (total 3 intentos fallidos).
-- **Después del tercer intento fallido**, 
+### GET /api/usuarios/perfil
 
-### 7. **Intento de login con cuenta bloqueada**
-- **Body:** credenciales correctas (`"Pass1234"`).
-- **Respuesta esperada:** `401 Unauthorized` con mensaje `"Cuenta bloqueada."`
-
-### 8. **Obtener perfil del cliente (HU-03)**
-- Para continuar probando, necesitamos una cuenta activa. 
-Vamos a registrar un segundo cliente:
-  - `POST /registro` con
-```json
-{
-  "nombre": "Luis Dos",
-  "correo": "luchojarados@prueba.cl",
-  "contrasena": "Contrasena1234",
-  "direccion": "Calle 123"
-}
 ```
-  - Login con `luchojarados@prueba.cl` / `Contrasena1234` → guardar token.
+Header: Authorization: Bearer <token>
+Response: 200 OK → PerfilResponseDTO (misma estructura que registro)
+```
 
-- **Endpoint (requiere token):** `GET /api/v1/usuarios/perfil`  
-  **Header:** `Authorization: Bearer token`
-- **Respuesta esperada:** `200 OK` con los datos del perfil (incluye `metodoPagoOfuscado` inicial, null).
+### PUT /api/usuarios/perfil
 
-### 9. **Actualizar perfil (nombre, dirección y método de pago) (HU-04)**
-- **Endpoint:** `PUT /api/v1/usuarios/perfil`  
-  **Header:** `Authorization: Bearer token`
-- **Body:**
 ```json
+// Request
 {
-  "nombre": "Luis Cyr",
-  "direccion": "Calle Mish 123",
+  "nombre": "Nuevo Nombre",
+  "direccion": "Nueva Dirección 123",
   "nuevoMetodoPago": "1111222233334444"
 }
-```
-- **Respuesta esperada:** `200 OK`
-- **Verificar:** Vuelve a hacer `GET /perfil` y observar datos actualizados.
 
-### 10. **Cerrar sesión (HU-45)**
-- **Endpoint:** `POST /api/v1/usuarios/logout`  
-  **Header:** `Authorization: Bearer token`
-- **Respuesta esperada:** `200 OK`
-- **Verificar:** Usa el mismo token en `GET /perfil` → debe dar `401 Unauthorized` (token invalidado), asimismo para actualizar el perfil.
-
-Claro, a continuación tienes la sección reescrita sin emojis y adaptada para crear el usuario administrador directamente en la base de datos usando el hash bcrypt que proporcionaste. Puedes copiar este bloque y reemplazar desde "Pruebas con rol ADMIN" hasta el final de la recuperación de contraseña.
-
-## Pruebas con rol ADMIN
-
-Para probar los endpoints necesitas un usuario con rol ADMIN. Puedes crearlo directamente en la base de datos.
-
-### Crear usuario administrador de prueba en la base de datos
-
-Conéctate a tu base de datos `db_usuarios` y ejecuta la siguiente sentencia SQL:
-
-```sql
-INSERT INTO usuarios (nombre, correo, contrasena, rol, estado, intentos_fallidos, metodo_pago_ofuscado)
-VALUES ('Administrador', 'admin@perfulandia.cl', '$2a$12$znkX4EyYutL4VdSsOjiaxu89boTQj/nu0T6zkebhCO88IQ3rfJ/AK', 'ADMIN', 'ACTIVO', 0, NULL);
+// Response: 200 OK → PerfilResponseDTO
+// El método de pago se ofusca: "**** **** **** 4444"
 ```
 
-La contraseña en texto plano es `admin1234`. El hash bcrypt ya está calculado.
+### POST /api/auth/recuperar
 
-### 11. Login como administrador
-
-- **Endpoint:** `POST /api/v1/usuarios/login`
-- **Body:**
 ```json
+// Request
+{ "correo": "andrea.vega@gmail.com" }
+
+// Response: 200 OK — devuelve el token UUID en texto plano
+"550e8400-e29b-41d4-a716-446655440000"
+```
+
+### POST /api/auth/restablecer
+
+```json
+// Request
 {
-  "correo": "admin@perfulandia.cl",
-  "contrasena": "admin1234"
+  "token": "550e8400-e29b-41d4-a716-446655440000",
+  "nuevaContrasena": "NuevaClave1"
 }
+
+// Response: 200 OK
 ```
-- **Respuesta esperada:** `200 OK` con un token JWT. Guarda este token como `tokenAdmin`.
 
-### 12. Crear empleado (HU-05)
+**Validaciones:**
+- Token inválido → 404 Not Found
+- Token ya usado → 400 Bad Request
+- Token expirado (15 min) → 400 Bad Request
+- Nueva contraseña debe cumplir con política de contraseñas
 
-- **Endpoint:** `POST /api/v1/usuarios/admin/empleados`
-- **Header:** `Authorization: Bearer tokenAdmin`
-- **Body:**
+### POST /api/usuarios (ADMIN) — Crear empleado
+
 ```json
+// Request
 {
-  "nombre": "Carlos Soto",
-  "correo": "carlos@empresa.cl",
+  "nombre": "Pedro Lopez",
+  "email": "pedro.lopez@perfulandia.cl",
   "rol": "EMPLEADO"
 }
+
+// Response: 201 Created → PerfilResponseDTO
+// El backend genera una contraseña temporal automáticamente
 ```
-- **Respuesta esperada:** `201 Created` con un JSON que contiene la contraseña temporal, por ejemplo:
+
+Rol puede ser: `ADMIN`, `CLIENTE`, `EMPLEADO`, `GERENTE`, `LOGISTICA`
+
+### GET /api/usuarios (ADMIN) — Listar usuarios
+
+```
+GET /api/usuarios?page=0&size=10&rol=EMPLEADO&estado=ACTIVO
+Header: Authorization: Bearer <token_admin>
+
+Response: 200 OK → Page<PerfilResponseDTO>
+```
+
+Parámetros opcionales: `rol`, `estado`, `page` (default 0), `size` (default 20)
+
+### PUT /api/usuarios/{id} (ADMIN) — Actualizar usuario
+
 ```json
+// Request
 {
-  "passwordTemporal": "A1b2C3d4"
+  "nombre": "Pedro Modificado",
+  "email": "pedro.mod@perfulandia.cl",
+  "rol": "LOGISTICA"
 }
+
+// Response: 200 OK → PerfilResponseDTO
 ```
 
-### 13. Listar usuarios paginados (HU-06)
+**Regla:** No se puede cambiar el rol de un usuario ADMIN a otro rol.
 
-- **Endpoint:** `GET /api/v1/usuarios/admin/usuarios?page=0&size=10`
-- **Header:** `Authorization: Bearer tokenAdmin`
-- **Respuesta esperada:** `200 OK` con una página de objetos `PerfilResponseDTO`. Verifica que no se exponga el campo `contrasena`.
+### DELETE /api/usuarios/{id} (ADMIN) — Desactivar usuario
 
-### 14. Actualizar empleado (HU-07)
-
-- Primero obtén el `id` del empleado recién creado (aparece en la lista del paso anterior o en la respuesta de creación, aunque ahí no viene el id, así que usa el listado).
-- **Endpoint:** `PUT /api/v1/usuarios/admin/usuarios/{id}`
-- **Header:** `Authorization: Bearer tokenAdmin`
-- **Body:**
-```json
-{
-  "nombre": "Carlos Soto Actualizado",
-  "correo": "carlos.nuevo@empresa.cl",
-  "rol": "GERENTE"
-}
 ```
-- **Respuesta esperada:** `200 OK`.
-- **Verificación:** Vuelve a listar usuarios y confirma que los datos del empleado hayan cambiado.
-
-### 15. Intentar que el administrador se degrade a sí mismo
-
-- Obtén el `id` del propio administrador (búscalo en el listado por su correo `admin@perfulandia.cl`).
-- **Endpoint:** `PUT /api/v1/usuarios/admin/usuarios/{idAdmin}`
-- **Header:** `Authorization: Bearer tokenAdmin`
-- **Body:**
-```json
-{
-  "nombre": "Administrador",
-  "correo": "admin@perfulandia.cl",
-  "rol": "CLIENTE"
-}
+Response: 200 OK (borrado lógico: cambia estado a INACTIVO)
 ```
-- **Respuesta esperada:** `500 Internal Server Error` con el mensaje `"Un administrador no puede cambiar su propio rol."`
 
-### 16. Desactivar un empleado (HU-08)
+**Reglas:**
+- No se puede desactivar a un ADMIN
+- No se puede desactivar a un usuario que ya está INACTIVO (400 Bad Request)
+- El usuario desactivado no puede iniciar sesión
 
-- Usa el `id` del empleado creado en el paso 12.
-- **Endpoint:** `DELETE /api/v1/usuarios/admin/usuarios/{idEmpleado}`
-- **Header:** `Authorization: Bearer tokenAdmin`
-- **Respuesta esperada:** `204 No Content`.
-- **Verificación:** Intenta iniciar sesión con el empleado (correo `carlos@empresa.cl` y la contraseña temporal que se generó). Debe devolver `401 Unauthorized` con el mensaje `"Cuenta bloqueada."`
+### POST /api/auth/logout
 
-### 17. Administrador no puede desactivarse a sí mismo
-
-- **Endpoint:** `DELETE /api/v1/usuarios/admin/usuarios/{idAdmin}`
-- **Header:** `Authorization: Bearer tokenAdmin`
-- **Respuesta esperada:** `500 Internal Server Error` con el mensaje `"Un administrador no puede desactivar su propia cuenta."`
-
-## Recuperación de contraseña (HU-44)
-
-Usaremos un cliente activo (por ejemplo, el que registraste antes, como `luis@testdos.cl`).
-
-### 18. Solicitar token de recuperación
-
-- **Endpoint:** `POST /api/v1/usuarios/recuperar-password`
-- **Body:**
-```json
-{
-  "correo": "luis@testdos.cl"
-}
 ```
-- **Respuesta esperada:** `200 OK`.
-- **Revisa los logs de la consola** del microservicio. Busca una línea similar a:
-  `Token de recuperación generado para luis@testdos.cl: 123e4567-e89b-12d3-a456-426614174000`
-  Copia ese UUID.
-
-### 19. Restablecer contraseña con token válido
-
-- **Endpoint:** `POST /api/v1/usuarios/restablecer-password`
-- **Body:**
-```json
-{
-  "token": "uuid-copiado",
-  "nuevaContrasena": "NuevaPass456"
-}
+Header: Authorization: Bearer <token>
+Response: 200 OK
 ```
-- **Respuesta esperada:** `200 OK`.
-- **Verificación:** Inicia sesión con `luis@testdos.cl` y la nueva contraseña `NuevaPass456`. Debe funcionar correctamente.
 
-### 20. Usar token inválido
+El token se agrega a una blacklist y no puede usarse nuevamente.
 
-- **Endpoint:** `POST /api/v1/usuarios/restablecer-password`
-- **Body:**
-```json
-{
-  "token": "cualquier-cosa",
-  "nuevaContrasena": "Pass123"
-}
-```
-- **Respuesta esperada:** `404 Not Found` con el mensaje `"Token inválido o expirado."`
+## Configuración de base de datos
+
+La aplicación usa MariaDB. La base de datos `perfulandia_usuarios` se crea automáticamente (`createDatabaseIfNotExist=true`). Las tablas se crean vía Hibernate (`ddl-auto=update`). Los usuarios de prueba se insertan con `data.sql` al iniciar (`spring.sql.init.mode=always`).
+
+Credenciales por defecto en [application.yml](src/main/resources/application.yml):
+- Usuario: `root`
+- Contraseña: `1234`
+
+Para Duoc/XAMPP (MySQL nativo), descomentar las líneas indicadas en el archivo.
+
+## Swagger / OpenAPI
+
+Documentación interactiva disponible en:
+- Swagger UI: http://localhost:8081/swagger-ui.html
+- API Docs (JSON): http://localhost:8081/v3/api-docs
+
+## Actuator
+
+- Health: http://localhost:8081/actuator/health
+- Info: http://localhost:8081/actuator/info
