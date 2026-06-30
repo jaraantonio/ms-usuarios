@@ -67,11 +67,13 @@ El servidor corre en **http://localhost:8081**.
 
 ## Pruebas automatizadas
 
-### Tests unitarios (JUnit)
+### Tests unitarios (JUnit + Mockito + JaCoCo)
 
 ```bash
 ./mvnw test
 ```
+
+Reporte de cobertura en `target/site/jacoco/index.html`.
 
 ### Tests de integración HTTP (todos los endpoints)
 
@@ -252,7 +254,10 @@ Credenciales por defecto en [application.yml](src/main/resources/application.yml
 - Usuario: `root`
 - Contraseña: `1234`
 
-Para Duoc/XAMPP (MySQL nativo), descomentar las líneas indicadas en el archivo.
+Para Duoc/XAMPP (MySQL nativo), usar el perfil `duoc`:
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=duoc
+```
 
 ## Swagger / OpenAPI
 

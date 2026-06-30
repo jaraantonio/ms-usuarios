@@ -170,6 +170,21 @@ Authorization: Bearer {{login_admin.response.body.token}}
 }
 
 
+### HU-52 | Crear Usuario con Sucursal Asignada (ADMIN)
+# @name crear_empleado_sucursal
+# Esperado: 201
+POST {{base_url}}/api/usuarios
+Content-Type: application/json
+Authorization: Bearer {{login_admin.response.body.token}}
+
+{
+  "nombre": "Maria Garcia",
+  "email": "maria.garcia_{{$timestamp}}@perfulandia.cl",
+  "rol": "EMPLEADO",
+  "idSucursalAsignada": 1
+}
+
+
 ### HU-07 | Actualizar Usuario (ADMIN)
 # Esperado: 200
 PUT {{base_url}}/api/usuarios/{{crear_empleado.response.body.id}}

@@ -27,6 +27,9 @@ public class Usuario {
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
+    @Column(length = 20)
+    private String telefono;
+
     @Column(nullable = false, length = 255)
     private String password;
 
@@ -40,6 +43,9 @@ public class Usuario {
 
     @Column(name = "intentos_fallidos", nullable = false)
     private Integer intentosFallidos = 0;
+
+    @Column(name = "id_sucursal_asignada")
+    private Long idSucursalAsignada;
 
     @Column(length = 500)
     private String direccion;

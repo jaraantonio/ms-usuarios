@@ -30,6 +30,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -111,6 +112,8 @@ class UsuarioServiceTest {
             assertEquals("Juan Pérez", result.nombre());
             assertEquals("juan@test.com", result.email());
             assertEquals(Rol.CLIENTE, result.rol());
+            assertEquals(EstadoUsuario.ACTIVO, result.estado());
+            assertEquals("****", result.metodoPagoOfuscado());
             verify(usuarioRepository, times(1)).save(any(Usuario.class));
         }
 
@@ -151,6 +154,7 @@ class UsuarioServiceTest {
             assertEquals("jwt-token", result.token());
             assertEquals("CLIENTE", result.rol());
             assertEquals(0, usuarioActivo.getIntentosFallidos());
+            verify(usuarioRepository, times(1)).save(usuarioActivo);
         }
 
         @Test
@@ -164,6 +168,7 @@ class UsuarioServiceTest {
             // When / Then
             assertThrows(CredencialesInvalidasException.class, () -> usuarioService.autenticar(dto));
             assertEquals(1, usuarioActivo.getIntentosFallidos());
+            verify(usuarioRepository, times(1)).save(usuarioActivo);
         }
 
         @Test
@@ -179,6 +184,7 @@ class UsuarioServiceTest {
             assertThrows(CredencialesInvalidasException.class, () -> usuarioService.autenticar(dto));
             assertEquals(EstadoUsuario.INACTIVO, usuarioActivo.getEstado());
             assertEquals(3, usuarioActivo.getIntentosFallidos());
+            verify(usuarioRepository, times(1)).save(usuarioActivo);
         }
 
         @Test
@@ -190,6 +196,7 @@ class UsuarioServiceTest {
 
             // When / Then
             assertThrows(CredencialesInvalidasException.class, () -> usuarioService.autenticar(dto));
+            verify(usuarioRepository, never()).save(any(Usuario.class));
         }
 
         @Test
@@ -201,6 +208,7 @@ class UsuarioServiceTest {
 
             // When / Then
             assertThrows(CredencialesInvalidasException.class, () -> usuarioService.autenticar(dto));
+            verify(usuarioRepository, never()).save(any(Usuario.class));
         }
     }
 
@@ -224,6 +232,7 @@ class UsuarioServiceTest {
             assertNotNull(result);
             assertEquals(1L, result.id());
             assertEquals("juan@test.com", result.email());
+            assertEquals(Rol.CLIENTE, result.rol());
         }
 
         @Test
@@ -277,6 +286,18 @@ class UsuarioServiceTest {
             assertTrue(captor.getValue().getMetodoPagoOfuscado().contains("****"));
             assertTrue(captor.getValue().getMetodoPagoOfuscado().contains("3456"));
         }
+
+        @Test
+        @DisplayName("Debe lanzar RecursoNoEncontradoException si el usuario no existe")
+        void actualizarPerfil_NoEncontrado() {
+            // Given
+            ActualizarPerfilDTO dto = new ActualizarPerfilDTO("Nombre", "Dirección", null);
+            when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+
+            // When / Then
+            assertThrows(RecursoNoEncontradoException.class, () -> usuarioService.actualizarPerfil(99L, dto));
+            verify(usuarioRepository, never()).save(any(Usuario.class));
+        }
     }
 
     // ==================================================================
@@ -291,7 +312,6 @@ class UsuarioServiceTest {
         void recuperarPassword_CorreoNoExiste() {
             // Given
             when(usuarioRepository.findByEmail("noexiste@test.com")).thenReturn(Optional.empty());
-            when(tokenRecuperacionRepository.findAll()).thenReturn(List.of());
 
             // When
             String result = usuarioService.recuperarPassword("noexiste@test.com");
@@ -300,6 +320,7 @@ class UsuarioServiceTest {
             assertNotNull(result);
             assertFalse(result.isBlank());
             verify(notificacionesWebClient, never()).enviarCorreo(any());
+            verify(tokenRecuperacionRepository, never()).save(any(TokenRecuperacion.class));
         }
 
         @Test
@@ -307,19 +328,14 @@ class UsuarioServiceTest {
         void recuperarPassword_Exito() {
             // Given
             when(usuarioRepository.findByEmail("juan@test.com")).thenReturn(Optional.of(usuarioActivo));
-            TokenRecuperacion tr = new TokenRecuperacion();
-            tr.setToken("token123");
-            tr.setCorreo("juan@test.com");
-            tr.setExpiracion(LocalDateTime.now().plusMinutes(15));
-            tr.setUsado(false);
-            when(tokenRecuperacionRepository.findAll()).thenReturn(List.of(tr));
 
             // When
             String result = usuarioService.recuperarPassword("juan@test.com");
 
             // Then
             assertNotNull(result);
-            assertTrue(result.contains("token123"));
+            assertFalse(result.isBlank());
+            assertTrue(result.length() > 20); // UUID length
             verify(tokenRecuperacionRepository, times(1)).save(any(TokenRecuperacion.class));
             verify(notificacionesWebClient, times(1)).enviarCorreo(any(CorreoRequestDTO.class));
         }
@@ -337,7 +353,7 @@ class UsuarioServiceTest {
         void restablecerPassword_Exito() {
             // Given
             TokenRecuperacion tr = new TokenRecuperacion();
-            tr.setToken("token123");
+            tr.setToken(UUID.randomUUID().toString());
             tr.setCorreo("juan@test.com");
             tr.setExpiracion(LocalDateTime.now().plusMinutes(5));
             tr.setUsado(false);
@@ -353,7 +369,10 @@ class UsuarioServiceTest {
 
             // Then
             verify(usuarioRepository, times(1)).save(any(Usuario.class));
+            verify(tokenRecuperacionRepository, times(1)).save(tr);
             assertTrue(tr.isUsado());
+            assertEquals(0, usuarioActivo.getIntentosFallidos());
+            assertEquals(EstadoUsuario.ACTIVO, usuarioActivo.getEstado());
         }
 
         @Test
@@ -361,7 +380,7 @@ class UsuarioServiceTest {
         void restablecerPassword_TokenExpirado() {
             // Given
             TokenRecuperacion tr = new TokenRecuperacion();
-            tr.setToken("token123");
+            tr.setToken(UUID.randomUUID().toString());
             tr.setCorreo("juan@test.com");
             tr.setExpiracion(LocalDateTime.now().minusMinutes(1));
             tr.setUsado(false);
@@ -371,6 +390,27 @@ class UsuarioServiceTest {
 
             // When / Then
             assertThrows(IllegalArgumentException.class, () -> usuarioService.restablecerPassword(dto));
+            verify(usuarioRepository, never()).save(any(Usuario.class));
+            assertFalse(tr.isUsado());
+        }
+
+        @Test
+        @DisplayName("Debe lanzar excepción si el token ya fue usado")
+        void restablecerPassword_TokenYaUsado() {
+            // Given
+            TokenRecuperacion tr = new TokenRecuperacion();
+            tr.setToken(UUID.randomUUID().toString());
+            tr.setCorreo("juan@test.com");
+            tr.setExpiracion(LocalDateTime.now().plusMinutes(5));
+            tr.setUsado(true);
+
+            RestablecerPasswordRequestDTO dto = new RestablecerPasswordRequestDTO("token123", "NuevaClave123");
+            when(tokenRecuperacionRepository.findByToken("token123")).thenReturn(Optional.of(tr));
+
+            // When / Then
+            assertThrows(IllegalArgumentException.class, () -> usuarioService.restablecerPassword(dto));
+            verify(usuarioRepository, never()).save(any(Usuario.class));
+            verify(tokenRecuperacionRepository, never()).save(any(TokenRecuperacion.class));
         }
     }
 
@@ -388,7 +428,11 @@ class UsuarioServiceTest {
             assertDoesNotThrow(() -> usuarioService.cerrarSesion("token-a-invalidar"));
 
             // Then
-            verify(tokenInvalidadoRepository, times(1)).save(any());
+            ArgumentCaptor<com.perfulandia.usuarios.model.entity.TokenInvalidado> captor =
+                    ArgumentCaptor.forClass(com.perfulandia.usuarios.model.entity.TokenInvalidado.class);
+            verify(tokenInvalidadoRepository, times(1)).save(captor.capture());
+            assertEquals("token-a-invalidar", captor.getValue().getToken());
+            assertNotNull(captor.getValue().getFechaInvalidacion());
         }
     }
 
@@ -403,7 +447,7 @@ class UsuarioServiceTest {
         @DisplayName("Debe crear usuario con rol asignado por admin")
         void crearUsuarioAdmin_Exito() {
             // Given
-            CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Empleado", "empleado@test.com", Rol.EMPLEADO);
+            CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Empleado", "empleado@test.com", Rol.EMPLEADO, null);
             when(usuarioRepository.findByEmail(dto.email())).thenReturn(Optional.empty());
             when(passwordEncoder.encode(anyString())).thenReturn("encodedPwd");
             when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
@@ -419,6 +463,8 @@ class UsuarioServiceTest {
             assertNotNull(result);
             assertEquals("empleado@test.com", result.email());
             assertEquals(Rol.EMPLEADO, result.rol());
+            assertEquals(EstadoUsuario.ACTIVO, result.estado());
+            assertEquals("****", result.metodoPagoOfuscado());
             verify(usuarioRepository, times(1)).save(any(Usuario.class));
         }
 
@@ -426,11 +472,12 @@ class UsuarioServiceTest {
         @DisplayName("Debe lanzar RecursoDuplicadoException si email ya existe")
         void crearUsuarioAdmin_EmailDuplicado() {
             // Given
-            CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Duplicado", "juan@test.com", Rol.EMPLEADO);
+            CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Duplicado", "juan@test.com", Rol.EMPLEADO, null);
             when(usuarioRepository.findByEmail(dto.email())).thenReturn(Optional.of(usuarioActivo));
 
             // When / Then
             assertThrows(RecursoDuplicadoException.class, () -> usuarioService.crearUsuarioAdmin(dto));
+            verify(usuarioRepository, never()).save(any(Usuario.class));
         }
     }
 
@@ -455,6 +502,7 @@ class UsuarioServiceTest {
             // Then
             assertNotNull(result);
             assertEquals(2, result.getTotalElements());
+            verify(usuarioRepository, times(1)).findAll(pageable);
         }
 
         @Test
@@ -470,6 +518,23 @@ class UsuarioServiceTest {
 
             // Then
             assertEquals(1, result.getTotalElements());
+            verify(usuarioRepository, times(1)).findByRol(Rol.CLIENTE, pageable);
+        }
+
+        @Test
+        @DisplayName("Debe filtrar por estado correctamente")
+        void listarUsuarios_PorEstado() {
+            // Given
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<Usuario> page = new PageImpl<>(List.of(usuarioActivo));
+            when(usuarioRepository.findByEstado(EstadoUsuario.ACTIVO, pageable)).thenReturn(page);
+
+            // When
+            Page<PerfilResponseDTO> result = usuarioService.listarUsuarios(pageable, null, "ACTIVO");
+
+            // Then
+            assertEquals(1, result.getTotalElements());
+            verify(usuarioRepository, times(1)).findByEstado(EstadoUsuario.ACTIVO, pageable);
         }
 
         @Test
@@ -486,6 +551,33 @@ class UsuarioServiceTest {
 
             // Then
             assertEquals(1, result.getTotalElements());
+            verify(usuarioRepository, times(1)).findByRolAndEstado(Rol.CLIENTE, EstadoUsuario.ACTIVO, pageable);
+        }
+
+        @Test
+        @DisplayName("Debe retornar página vacía si el valor del rol es inválido")
+        void listarUsuarios_RolInvalido() {
+            // Given
+            Pageable pageable = PageRequest.of(0, 10);
+
+            // When
+            Page<PerfilResponseDTO> result = usuarioService.listarUsuarios(pageable, "ROL_INEXISTENTE", null);
+
+            // Then
+            assertTrue(result.isEmpty());
+        }
+
+        @Test
+        @DisplayName("Debe retornar página vacía si el valor del estado es inválido")
+        void listarUsuarios_EstadoInvalido() {
+            // Given
+            Pageable pageable = PageRequest.of(0, 10);
+
+            // When
+            Page<PerfilResponseDTO> result = usuarioService.listarUsuarios(pageable, null, "ESTADO_INEXISTENTE");
+
+            // Then
+            assertTrue(result.isEmpty());
         }
     }
 
@@ -500,7 +592,7 @@ class UsuarioServiceTest {
         @DisplayName("Debe actualizar datos de usuario correctamente")
         void actualizarUsuarioAdmin_Exito() {
             // Given
-            ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Nuevo", "nuevo@test.com", Rol.GERENTE);
+            ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Nuevo", "nuevo@test.com", Rol.GERENTE, null);
             Usuario target = new Usuario();
             target.setId(5L);
             target.setRol(Rol.EMPLEADO);
@@ -512,6 +604,8 @@ class UsuarioServiceTest {
 
             // Then
             assertNotNull(result);
+            assertEquals("nuevo@test.com", result.email());
+            assertEquals(Rol.GERENTE, result.rol());
             verify(usuarioRepository, times(1)).save(any(Usuario.class));
         }
 
@@ -522,12 +616,26 @@ class UsuarioServiceTest {
             Usuario admin = new Usuario();
             admin.setId(1L);
             admin.setRol(Rol.ADMIN);
-            ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Admin", "admin@test.com", Rol.EMPLEADO);
+            ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Admin", "admin@test.com", Rol.EMPLEADO, null);
             when(usuarioRepository.findById(1L)).thenReturn(Optional.of(admin));
 
             // When / Then
             assertThrows(IllegalArgumentException.class,
                     () -> usuarioService.actualizarUsuarioAdmin(1L, dto));
+            verify(usuarioRepository, never()).save(any(Usuario.class));
+        }
+
+        @Test
+        @DisplayName("Debe lanzar RecursoNoEncontradoException si el usuario no existe")
+        void actualizarUsuarioAdmin_NoEncontrado() {
+            // Given
+            ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Nuevo", "nuevo@test.com", Rol.EMPLEADO, null);
+            when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+
+            // When / Then
+            assertThrows(RecursoNoEncontradoException.class,
+                    () -> usuarioService.actualizarUsuarioAdmin(99L, dto));
+            verify(usuarioRepository, never()).save(any(Usuario.class));
         }
     }
 
@@ -567,6 +675,29 @@ class UsuarioServiceTest {
 
             // When / Then
             assertThrows(IllegalArgumentException.class, () -> usuarioService.desactivarUsuario(1L));
+            verify(usuarioRepository, never()).save(any(Usuario.class));
+        }
+
+        @Test
+        @DisplayName("Debe lanzar excepción si el usuario ya está inactivo")
+        void desactivarUsuario_YaInactivo() {
+            // Given
+            when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuarioInactivo));
+
+            // When / Then
+            assertThrows(IllegalArgumentException.class, () -> usuarioService.desactivarUsuario(2L));
+            verify(usuarioRepository, never()).save(any(Usuario.class));
+        }
+
+        @Test
+        @DisplayName("Debe lanzar RecursoNoEncontradoException si el usuario no existe")
+        void desactivarUsuario_NoEncontrado() {
+            // Given
+            when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+
+            // When / Then
+            assertThrows(RecursoNoEncontradoException.class, () -> usuarioService.desactivarUsuario(99L));
+            verify(usuarioRepository, never()).save(any(Usuario.class));
         }
     }
 }

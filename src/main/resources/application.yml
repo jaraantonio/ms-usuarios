@@ -63,7 +63,7 @@ management:
 
 # MS Notificaciones (WebClient)
 ms-notificaciones:
-  url: http://localhost:8088
+  url: http://localhost:8089
 
 # Swagger
 springdoc:

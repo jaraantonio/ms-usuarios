@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -97,6 +98,7 @@ public class UsuarioService {
     // ============================================================
     // HU-03: Obtener perfil
     // ============================================================
+    @Transactional(readOnly = true)
     public PerfilResponseDTO obtenerPerfil(Long id) {
         log.info("Consultando perfil de usuario ID: {}", id);
         Usuario usuario = usuarioRepository.findById(id)
@@ -134,7 +136,8 @@ public class UsuarioService {
     public String recuperarPassword(String email) {
         log.info("Solicitud de recuperación de contraseña para: {}", email);
 
-        usuarioRepository.findByEmail(email).ifPresent(usuario -> {
+        Optional<Usuario> usuarioOpt = usuarioRepository.findByEmail(email);
+        if (usuarioOpt.isPresent()) {
             String token = UUID.randomUUID().toString();
             TokenRecuperacion tr = new TokenRecuperacion();
             tr.setToken(token);
@@ -144,15 +147,11 @@ public class UsuarioService {
             tokenRecuperacionRepository.save(tr);
             log.info("Token de recuperación generado para: {}", email);
             notificacionesWebClient.enviarCorreo(new CorreoRequestDTO(email));
-        });
+            return token;
+        }
 
-        // Devuelve el token si existe, o un UUID simulado (no revela si el correo existe)
-        String token = tokenRecuperacionRepository.findAll().stream()
-                .filter(t -> t.getCorreo().equals(email) && !t.isUsado())
-                .findFirst()
-                .map(TokenRecuperacion::getToken)
-                .orElse(UUID.randomUUID().toString());
-        return token;
+        // No revela si el correo existe o no
+        return UUID.randomUUID().toString();
     }
 
     // ============================================================
@@ -203,20 +202,26 @@ public class UsuarioService {
     // ============================================================
     // HU-06: Listar usuarios (ADMIN)
     // ============================================================
+    @Transactional(readOnly = true)
     public Page<PerfilResponseDTO> listarUsuarios(Pageable pageable, String rol, String estado) {
         log.info("Listando usuarios - rol: {}, estado: {}", rol, estado);
 
         Page<Usuario> usuarios;
 
-        if (rol != null && estado != null) {
-            usuarios = usuarioRepository.findByRolAndEstado(
-                    Rol.valueOf(rol), EstadoUsuario.valueOf(estado), pageable);
-        } else if (rol != null) {
-            usuarios = usuarioRepository.findByRol(Rol.valueOf(rol), pageable);
-        } else if (estado != null) {
-            usuarios = usuarioRepository.findByEstado(EstadoUsuario.valueOf(estado), pageable);
-        } else {
-            usuarios = usuarioRepository.findAll(pageable);
+        try {
+            if (rol != null && estado != null) {
+                usuarios = usuarioRepository.findByRolAndEstado(
+                        Rol.valueOf(rol), EstadoUsuario.valueOf(estado), pageable);
+            } else if (rol != null) {
+                usuarios = usuarioRepository.findByRol(Rol.valueOf(rol), pageable);
+            } else if (estado != null) {
+                usuarios = usuarioRepository.findByEstado(EstadoUsuario.valueOf(estado), pageable);
+            } else {
+                usuarios = usuarioRepository.findAll(pageable);
+            }
+        } catch (IllegalArgumentException e) {
+            log.warn("Filtro inválido para listar usuarios - rol: {}, estado: {}", rol, estado);
+            usuarios = Page.empty(pageable);
         }
 
         return usuarios.map(this::toPerfilResponse);
@@ -242,6 +247,7 @@ public class UsuarioService {
         usuario.setRol(dto.rol());
         usuario.setEstado(EstadoUsuario.ACTIVO);
         usuario.setMetodoPagoOfuscado("****");
+        usuario.setIdSucursalAsignada(dto.idSucursalAsignada());
 
         Usuario guardado = usuarioRepository.save(usuario);
         log.info("Usuario creado con ID: {} - contraseña temporal: {}", guardado.getId(), passwordTemporal);
@@ -266,7 +272,7 @@ public class UsuarioService {
         usuario.setNombre(dto.nombre());
         usuario.setEmail(dto.email());
         usuario.setRol(dto.rol());
-
+        usuario.setIdSucursalAsignada(dto.idSucursalAsignada());
         Usuario guardado = usuarioRepository.save(usuario);
         log.info("Usuario actualizado exitosamente ID: {}", id);
         return toPerfilResponse(guardado);

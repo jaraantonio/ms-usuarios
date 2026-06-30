@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     estado ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO',
     intentos_fallidos INT NOT NULL DEFAULT 0,
     direccion VARCHAR(500),
+    id_sucursal_asignada BIGINT,
     metodo_pago_ofuscado VARCHAR(500),
     fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

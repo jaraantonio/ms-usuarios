@@ -14,5 +14,7 @@ public record CrearEmpleadoDTO(
         String email,
 
         @NotNull(message = "El rol es obligatorio")
-        Rol rol) {
+        Rol rol,
+
+        Long idSucursalAsignada) {
 }
