@@ -75,15 +75,6 @@ El servidor corre en **http://localhost:8081**.
 
 Reporte de cobertura en `target/site/jacoco/index.html`.
 
-### Tests de integración HTTP (todos los endpoints)
-
-```bash
-./http/run_tests.sh           # Ejecuta 18 requests, verifica códigos HTTP
-./http/run_tests.sh --verbose # Muestra cuerpo de cada respuesta
-```
-
-Los 18 requests están documentados en [http/ms-usuarios.http](http/ms-usuarios.http), usables también manualmente desde VS Code con la extensión REST Client.
-
 ## Estructura de requests y respuestas
 
 ### POST /api/auth/registro

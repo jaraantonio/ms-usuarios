@@ -20,7 +20,7 @@ public class NotificacionesWebClient {
 
     public void enviarCorreo(CorreoRequestDTO request) {
         webClient.post()
-                .uri("/api/v1/notificaciones/enviar-correo")
+                .uri("/api/notificaciones/enviar")
                 .bodyValue(request)
                 .retrieve()
                 .toBodilessEntity()
