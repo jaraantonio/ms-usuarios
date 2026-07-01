@@ -35,14 +35,6 @@ spring:
         dialect: org.hibernate.dialect.MariaDBDialect
         # Plan B: # dialect: org.hibernate.dialect.MySQLDialect
 
-  # Flyway
-  flyway:
-    # DESACTIVADO: MariaDB 11.8 no soportada por Flyway 12.x
-    # En Duoc (MySQL 8.x): enabled: true + ddl-auto: validate
-    enabled: false
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-
 server:
   port: 8081
 

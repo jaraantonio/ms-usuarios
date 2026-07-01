@@ -21,7 +21,7 @@ public class OpenApiConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("MS Usuarios API")
+                        .title("MS Usuarios — Perfulandia SPA")
                         .description("Microservicio de gestión de usuarios y autenticación para Perfulandia SPA")
                         .version("1.0.0"))
                 .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME))
