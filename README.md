@@ -7,15 +7,32 @@ Microservicio de gestión de identidades, autenticación JWT, roles y recuperaci
 - Historias de usuario: HU-01 a HU-09, HU-44 y HU-45.
 - Swagger/OpenAPI disponible en: http://localhost:8081/swagger-ui.html
 
-## Estudiante
+## Estudiantes
 
-Antonio Jara
+- Antonio Jara
+
+## Microservicios del proyecto
+
+| Microservicio | Puerto | BD |
+|--------------|--------|----|
+| **ms-usuarios** | 8081 | perfulandia_usuarios |
+| **ms-notificaciones** | 8089 | perfulandia_notificaciones |
+| **ms-reportes** | 8090 | perfulandia_reportes |
+| **ms-atencion-cliente** | 8088 | perfulandia_atencion |
+| MS_ProductoYStock | 8082 | db_productos_stock |
+| MS_Proveedor | 8084 | db_proveedor |
+| MS_Ventas | 8095 | db_ventas |
+| ms-envios | 8091 | db_perfulandia_envios |
+| ms-pagos | 8086 | db_perfulandia_pagos |
+| ms-sucursales | 8087 | db_perfulandia_logistica |
+
+> **Nota:** Todos los microservicios usan MySQL driver + XAMPP (root sin contraseña), se conectan al mismo servidor `localhost:3306` y crean su BD automáticamente al arrancar.
 
 ## Tecnologías
 
-- Java 25, Spring Boot 4.1.0, Spring Security, JWT (jjwt 0.12.5), JPA/Hibernate
-- MariaDB 11.8 (compatible con MySQL 8.x para Duoc/XAMPP)
-- Maven, Flyway (scripts en `db/migration/V1__perfulandia_usuarios.sql` — desactivado temporalmente porque MariaDB 11.8 no es compatible con Flyway 12.x; en Duoc con MySQL 8.x funciona activando `enabled: true` + `ddl-auto: validate`), Swagger/OpenAPI
+- Java 25, Spring Boot 4.0.6, Spring Security, JWT (jjwt 0.12.5), JPA/Hibernate
+- MySQL 8+ / MariaDB 10.4+ (XAMPP)
+- Maven, Swagger/OpenAPI (Springdoc)
 
 ## Usuarios de prueba (poblado de la BD con data.sql)
 
@@ -67,13 +84,13 @@ El servidor corre en **http://localhost:8081**.
 
 ## Pruebas automatizadas
 
-### Tests unitarios (JUnit + Mockito + JaCoCo)
+### Tests unitarios (JUnit + Mockito)
 
 ```bash
 ./mvnw test
 ```
 
-Reporte de cobertura en `target/site/jacoco/index.html`.
+Reporte en `target/surefire-reports/`.
 
 ## Estructura de requests y respuestas
 
@@ -239,16 +256,11 @@ El token se agrega a una blacklist y no puede usarse nuevamente.
 
 ## Configuración de base de datos
 
-La aplicación usa MariaDB. La base de datos `perfulandia_usuarios` se crea automáticamente (`createDatabaseIfNotExist=true`). Las tablas se crean vía Hibernate (`ddl-auto=update`). Los usuarios de prueba se insertan con `data.sql` al iniciar (`spring.sql.init.mode=always`).
+La aplicación usa MySQL driver (compatible con MariaDB vía XAMPP). La base de datos `perfulandia_usuarios` se crea automáticamente al arrancar (`createDatabaseIfNotExist=true`). Las tablas se crean vía Hibernate (`ddl-auto=update`). Los usuarios de prueba se insertan con `data.sql` al iniciar (`spring.sql.init.mode=always`).
 
 Credenciales por defecto en [application.yml](src/main/resources/application.yml):
 - Usuario: `root`
-- Contraseña: `1234`
-
-Para Duoc/XAMPP (MySQL nativo), usar el perfil `duoc`:
-```bash
-./mvnw spring-boot:run -Dspring-boot.run.profiles=duoc
-```
+- Contraseña: *(vacío — default XAMPP)*
 
 ## Swagger / OpenAPI
 

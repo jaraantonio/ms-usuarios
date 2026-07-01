@@ -1,6 +1,7 @@
 package com.perfulandia.usuarios.controller;
 
-import tools.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.perfulandia.usuarios.exception.CredencialesInvalidasException;
 import com.perfulandia.usuarios.exception.GlobalExceptionHandler;
 import com.perfulandia.usuarios.exception.RecursoDuplicadoException;
@@ -42,8 +43,7 @@ class UsuarioControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private JsonMapper objectMapper;
+    private final ObjectMapper objectMapper = new JsonMapper();
 
     @MockitoBean
     private UsuarioService usuarioService;

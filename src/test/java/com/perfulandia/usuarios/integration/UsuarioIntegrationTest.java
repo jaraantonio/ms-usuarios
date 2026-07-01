@@ -1,6 +1,7 @@
 package com.perfulandia.usuarios.integration;
 
-import tools.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.perfulandia.usuarios.model.dto.RegistroRequestDTO;
 import com.perfulandia.usuarios.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,8 +30,7 @@ class UsuarioIntegrationTest {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
-    @Autowired
-    private JsonMapper objectMapper;
+    private final ObjectMapper objectMapper = new JsonMapper();
 
     @BeforeEach
     void setUp() {

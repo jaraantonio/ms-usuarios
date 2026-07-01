@@ -2,48 +2,33 @@ spring:
   application:
     name: ms-usuarios
 
-  # Base de datos MariaDB - perfulandia_usuarios
-  # ──────────────────────────────────────────────
-  # Si falla en Duoc (XAMPP/MySQL):
-  #   1. Comenta las lineas mariadb de abajo
-  #   2. Descomenta las lineas mysql de abajo
-  # ──────────────────────────────────────────────
   datasource:
-    # === Driver MariaDB (compatible MySQL) ===
-    url: jdbc:mariadb://localhost:3306/perfulandia_usuarios?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Santiago
+    url: jdbc:mysql://localhost:3306/perfulandia_usuarios?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Santiago
     username: root
-    password: 1234
-    driver-class-name: org.mariadb.jdbc.Driver
-    # === Plan B: driver MySQL nativo (XAMPP/Windows)
-    # url: jdbc:mysql://localhost:3306/perfulandia_usuarios?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Santiago
-    # driver-class-name: com.mysql.cj.jdbc.Driver
+    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
-  # SQL init (data.sql al arrancar)
   sql:
     init:
       mode: always
 
-  # JPA / Hibernate
   jpa:
     defer-datasource-initialization: true
     hibernate:
-      "ddl-auto": update
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
-        "[format_sql]": true
-        dialect: org.hibernate.dialect.MariaDBDialect
-        # Plan B: # dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
 
 server:
   port: 8081
 
-# JWT
 jwt:
   secret: ${JWT_SECRET:perfulandiaclavesecreta123456789}
   expiration: 3600000
 
-# Actuator
 management:
   endpoints:
     web:
@@ -53,11 +38,9 @@ management:
     health:
       show-details: always
 
-# MS Notificaciones (WebClient)
 ms-notificaciones:
   url: http://localhost:8089
 
-# Swagger
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
