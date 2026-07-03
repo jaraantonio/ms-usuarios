@@ -24,5 +24,8 @@ public record RegistroRequestDTO(
 
         @NotBlank(message = "La dirección de envío es obligatoria")
         @Size(max = 255, message = "La dirección no puede exceder los 255 caracteres")
-        String direccion) {
+        String direccion,
+
+        @Pattern(regexp = "^\\+569\\d{8}$", message = "El teléfono debe tener formato +569XXXXXXXX (ej: +56912345678)")
+        String telefono) {
 }

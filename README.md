@@ -2,9 +2,9 @@
 
 ## Descripción
 
-Microservicio de gestión de identidades, autenticación, roles y recuperación de contraseña para Perfulandia SPA. Gestiona el registro de clientes, inicio de sesión, perfiles de usuario y administración de empleados.
+Microservicio de gestión de identidades, autenticación, roles y recuperación de contraseña para Perfulandia SPA. Gestiona el registro de clientes, inicio de sesión, perfiles de usuario y administración de empleados. Se integra con ms-notificaciones para registrar notificaciones de recuperación de contraseña (HU-44a).
 
-- Historias de usuario: HU-01 a HU-09, HU-44 y HU-45.
+- Historias de usuario: HU-01 a HU-09, HU-44, HU-45 y HU-52.
 - Swagger/OpenAPI disponible en: http://localhost:8081/swagger-ui.html
 
 ## Estudiantes
@@ -55,12 +55,26 @@ Al iniciar la aplicación se insertan automáticamente 5 usuarios, uno por cada 
 | GET | `/api/usuarios/{id}/perfil` | HU-03 | Obtener perfil por ID de usuario |
 | PUT | `/api/usuarios/{id}/perfil` | HU-04 | Actualizar nombre, dirección y método de pago |
 | POST | `/api/auth/logout` | HU-45 | Cerrar sesión |
-| POST | `/api/auth/recuperar` | HU-44a | Solicitar token de recuperación |
+| POST | `/api/auth/recuperar` | HU-44a | Solicitar recuperación de contraseña (registra notificación con token) |
 | POST | `/api/auth/restablecer` | HU-44b | Restablecer contraseña con token |
 | GET | `/api/usuarios` | HU-06 | Listar usuarios (paginado, filtros por `?rol=` y `?estado=`) |
 | POST | `/api/usuarios` | HU-05 | Crear empleado (contraseña temporal automática) |
 | PUT | `/api/usuarios/{id}` | HU-07 | Actualizar usuario (nombre, email, rol) |
 | DELETE | `/api/usuarios/{id}` | HU-08 | Desactivar usuario (borrado lógico) |
+| GET | `/api/usuarios/permisos` | HU-09 | Listar todos los permisos disponibles |
+| GET | `/api/usuarios/roles/{rol}/permisos` | HU-09 | Obtener permisos asignados a un rol |
+| PUT | `/api/usuarios/roles/{rol}/permisos` | HU-09 | Asignar permisos a un rol |
+
+## Gateway
+
+El API Gateway (Puerto 8000) expone las rutas de este microservicio bajo los siguientes predicados:
+
+| Ruta del Gateway | Destino |
+|-----------------|---------|
+| `/api/auth/**` | `http://localhost:8081` (ms-usuarios) |
+| `/api/usuarios/**` | `http://localhost:8081` (ms-usuarios) |
+
+Todas las requests deben hacerse a `http://localhost:8000/api/auth/...` o `http://localhost:8000/api/usuarios/...`.
 
 ## Ejecución
 
@@ -162,17 +176,22 @@ PUT /api/usuarios/1/perfil
 // El método de pago se ofusca: "**** **** **** 4444"
 ```
 
-### POST /api/auth/recuperar
+### POST /api/auth/recuperar (HU-44a)
 
 ```json
 // Request
 { "correo": "andrea.vega@gmail.com" }
 
-// Response: 200 OK — devuelve el token UUID en texto plano
-"550e8400-e29b-41d4-a716-446655440000"
+// Response: 200 OK — mismo mensaje exista o no el correo (seguridad)
+"Si el correo está registrado, recibirás un enlace de recuperación."
 ```
 
-### POST /api/auth/restablecer
+**Integración con notificaciones:**
+- Si el correo existe, se genera un token UUID y se registra una notificación de tipo `RECUPERACION_CLAVE` en ms-notificaciones, incluyendo el token en el cuerpo de la notificación
+- El token se puede visualizar consultando `GET /api/notificaciones/ultimo?destinatario=...` en ms-notificaciones
+- Por seguridad, la API de usuarios nunca devuelve el token en la respuesta
+
+### POST /api/auth/restablecer (HU-44b)
 
 ```json
 // Request

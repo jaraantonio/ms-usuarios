@@ -51,7 +51,7 @@ class UsuarioControllerTest {
     @Test
     @DisplayName("POST /api/auth/registro debe retornar 201")
     void registrar_DebeRetornar201() throws Exception {
-        RegistroRequestDTO req = new RegistroRequestDTO("Juan", "juan@test.com", "Juan12345", "Calle 123");
+        RegistroRequestDTO req = new RegistroRequestDTO("Juan", "juan@test.com", "Juan12345", "Calle 123", "+56912345678");
         PerfilResponseDTO res = new PerfilResponseDTO(1L, "Juan", "juan@test.com",
                 Rol.CLIENTE, EstadoUsuario.ACTIVO, "Calle 123", "****");
 

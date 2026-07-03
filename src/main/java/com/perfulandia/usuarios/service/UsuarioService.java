@@ -51,6 +51,7 @@ public class UsuarioService {
         usuario.setRol(Rol.CLIENTE);
         usuario.setEstado(EstadoUsuario.ACTIVO);
         usuario.setDireccion(dto.direccion());
+        usuario.setTelefono(dto.telefono());
         usuario.setMetodoPagoOfuscado("****");
 
         Usuario guardado = usuarioRepository.save(usuario);

@@ -41,7 +41,7 @@ class UsuarioIntegrationTest {
     @DisplayName("Flujo completo: registro exitoso seguido de login exitoso")
     void flujoRegistroYLoginExitoso() throws Exception {
         // Given: datos de registro válidos
-        RegistroRequestDTO req = new RegistroRequestDTO("Ana López", "ana@test.com", "Ana123456", "Av. Siempre Viva 742");
+        RegistroRequestDTO req = new RegistroRequestDTO("Ana López", "ana@test.com", "Ana123456", "Av. Siempre Viva 742", "+56912345678");
 
         // When: registrar cliente
         mockMvc.perform(post("/api/auth/registro")
@@ -68,7 +68,7 @@ class UsuarioIntegrationTest {
     @DisplayName("Registro con email duplicado debe fallar")
     void registroEmailDuplicado_DebeFallar() throws Exception {
         // Given: primer registro exitoso
-        RegistroRequestDTO req = new RegistroRequestDTO("Pedro", "pedro@test.com", "Pedro12345", "Calle Falsa 123");
+        RegistroRequestDTO req = new RegistroRequestDTO("Pedro", "pedro@test.com", "Pedro12345", "Calle Falsa 123", "+56987654321");
         mockMvc.perform(post("/api/auth/registro")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
@@ -86,7 +86,7 @@ class UsuarioIntegrationTest {
     @DisplayName("Login con credenciales incorrectas debe fallar")
     void loginCredencialesIncorrectas_DebeFallar() throws Exception {
         // Given: usuario registrado
-        RegistroRequestDTO req = new RegistroRequestDTO("Luis", "luis@test.com", "Luis12345", "Calle 456");
+        RegistroRequestDTO req = new RegistroRequestDTO("Luis", "luis@test.com", "Luis12345", "Calle 456", "+56955555555");
         mockMvc.perform(post("/api/auth/registro")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))

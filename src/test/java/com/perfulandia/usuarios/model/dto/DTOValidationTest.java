@@ -42,7 +42,7 @@ class DTOValidationTest {
     void registroRequestDTO_Valido() {
         // Given
         RegistroRequestDTO dto = new RegistroRequestDTO(
-                "Juan Pérez", "juan@test.com", "Juan12345", "Av. Siempre Viva 742");
+                "Juan Pérez", "juan@test.com", "Juan12345", "Av. Siempre Viva 742", null);
 
         // When
         Set<ConstraintViolation<RegistroRequestDTO>> violations = validator.validate(dto);
@@ -56,7 +56,7 @@ class DTOValidationTest {
     void registroRequestDTO_NombreVacio() {
         // Given
         RegistroRequestDTO dto = new RegistroRequestDTO(
-                "", "juan@test.com", "Juan12345", "Dirección");
+                "", "juan@test.com", "Juan12345", "Dirección", null);
 
         // When
         Set<ConstraintViolation<RegistroRequestDTO>> violations = validator.validate(dto);
@@ -71,7 +71,7 @@ class DTOValidationTest {
     void registroRequestDTO_EmailInvalido() {
         // Given
         RegistroRequestDTO dto = new RegistroRequestDTO(
-                "Juan", "email-invalido", "Juan12345", "Dirección");
+                "Juan", "email-invalido", "Juan12345", "Dirección", null);
 
         // When
         Set<ConstraintViolation<RegistroRequestDTO>> violations = validator.validate(dto);
@@ -86,7 +86,7 @@ class DTOValidationTest {
     void registroRequestDTO_PasswordSinMayuscula() {
         // Given
         RegistroRequestDTO dto = new RegistroRequestDTO(
-                "Juan", "juan@test.com", "solominusculasynumeros123", "Dirección");
+                "Juan", "juan@test.com", "solominusculasynumeros123", "Dirección", null);
 
         // When
         Set<ConstraintViolation<RegistroRequestDTO>> violations = validator.validate(dto);
@@ -101,7 +101,7 @@ class DTOValidationTest {
     void registroRequestDTO_PasswordSinNumero() {
         // Given
         RegistroRequestDTO dto = new RegistroRequestDTO(
-                "Juan", "juan@test.com", "SoloLetrasSinNumeros", "Dirección");
+                "Juan", "juan@test.com", "SoloLetrasSinNumeros", "Dirección", null);
 
         // When
         Set<ConstraintViolation<RegistroRequestDTO>> violations = validator.validate(dto);
@@ -115,7 +115,7 @@ class DTOValidationTest {
     void registroRequestDTO_PasswordMuyCorta() {
         // Given
         RegistroRequestDTO dto = new RegistroRequestDTO(
-                "Juan", "juan@test.com", "Ab1", "Dirección");
+                "Juan", "juan@test.com", "Ab1", "Dirección", null);
 
         // When
         Set<ConstraintViolation<RegistroRequestDTO>> violations = validator.validate(dto);
@@ -125,11 +125,40 @@ class DTOValidationTest {
     }
 
     @Test
+    @DisplayName("RegistroRequestDTO con teléfono válido no debe tener violación")
+    void registroRequestDTO_TelefonoValido() {
+        // Given
+        RegistroRequestDTO dto = new RegistroRequestDTO(
+                "Juan", "juan@test.com", "Juan12345", "Dirección", "+56912345678");
+
+        // When
+        Set<ConstraintViolation<RegistroRequestDTO>> violations = validator.validate(dto);
+
+        // Then
+        assertTrue(violations.isEmpty());
+    }
+
+    @Test
+    @DisplayName("RegistroRequestDTO con teléfono inválido debe tener violación")
+    void registroRequestDTO_TelefonoInvalido() {
+        // Given
+        RegistroRequestDTO dto = new RegistroRequestDTO(
+                "Juan", "juan@test.com", "Juan12345", "Dirección", "123456789");
+
+        // When
+        Set<ConstraintViolation<RegistroRequestDTO>> violations = validator.validate(dto);
+
+        // Then
+        assertEquals(1, violations.size());
+        assertTrue(violations.iterator().next().getMessage().contains("+569"));
+    }
+
+    @Test
     @DisplayName("RegistroRequestDTO con dirección vacía debe tener violación")
     void registroRequestDTO_DireccionVacia() {
         // Given
         RegistroRequestDTO dto = new RegistroRequestDTO(
-                "Juan", "juan@test.com", "Juan12345", "");
+                "Juan", "juan@test.com", "Juan12345", "", null);
 
         // When
         Set<ConstraintViolation<RegistroRequestDTO>> violations = validator.validate(dto);

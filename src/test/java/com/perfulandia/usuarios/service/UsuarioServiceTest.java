@@ -88,7 +88,7 @@ class UsuarioServiceTest {
         @DisplayName("Debe registrar cliente exitosamente con datos válidos")
         void registrarCliente_Exito() {
             // Given
-            RegistroRequestDTO dto = new RegistroRequestDTO("Juan", "juan@test.com", "Juan12345", "Calle 123");
+            RegistroRequestDTO dto = new RegistroRequestDTO("Juan", "juan@test.com", "Juan12345", "Calle 123", "+56912345678");
             when(usuarioRepository.findByEmail(dto.email())).thenReturn(Optional.empty());
             when(passwordEncoder.encode(dto.password())).thenReturn("encodedPass");
             when(usuarioRepository.save(any(Usuario.class))).thenReturn(usuarioActivo);
@@ -110,7 +110,7 @@ class UsuarioServiceTest {
         @DisplayName("Debe lanzar RecursoDuplicadoException si el correo ya existe")
         void registrarCliente_EmailDuplicado() {
             // Given
-            RegistroRequestDTO dto = new RegistroRequestDTO("Juan", "juan@test.com", "Juan12345", "Calle 123");
+            RegistroRequestDTO dto = new RegistroRequestDTO("Juan", "juan@test.com", "Juan12345", "Calle 123", "+56912345678");
             when(usuarioRepository.findByEmail(dto.email())).thenReturn(Optional.of(usuarioActivo));
 
             // When / Then
