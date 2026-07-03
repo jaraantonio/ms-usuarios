@@ -3,12 +3,21 @@
 -- Contraseña de todos: Pass1234
 -- Empleados → @perfulandia.cl  |  Cliente → @gmail.com
 -- ============================================================
-INSERT IGNORE INTO usuarios (nombre, email, password, rol, estado, intentos_fallidos, fecha_registro) VALUES
-('Admin',     'admin@perfulandia.cl',     '$2b$12$cNZ8L8xTbKH6BIpMt0TB/uk/PrbtNxvj7QxFUje1m1rTCefQ0/sMO', 'ADMIN',     'ACTIVO', 0, NOW()),
-('Gerente',   'gerente@perfulandia.cl',   '$2b$12$cNZ8L8xTbKH6BIpMt0TB/uk/PrbtNxvj7QxFUje1m1rTCefQ0/sMO', 'GERENTE',   'ACTIVO', 0, NOW()),
-('Empleado',  'empleado@perfulandia.cl',  '$2b$12$cNZ8L8xTbKH6BIpMt0TB/uk/PrbtNxvj7QxFUje1m1rTCefQ0/sMO', 'EMPLEADO',  'ACTIVO', 0, NOW()),
-('Logística', 'logistica@perfulandia.cl', '$2b$12$cNZ8L8xTbKH6BIpMt0TB/uk/PrbtNxvj7QxFUje1m1rTCefQ0/sMO', 'LOGISTICA', 'ACTIVO', 0, NOW()),
-('Cliente',   'cliente@gmail.com',        '$2b$12$cNZ8L8xTbKH6BIpMt0TB/uk/PrbtNxvj7QxFUje1m1rTCefQ0/sMO', 'CLIENTE',   'ACTIVO', 0, NOW());
+
+-- HU-09: Rol como ENTIDAD — seed de roles
+INSERT IGNORE INTO rol (id, nombre, descripcion) VALUES
+(1, 'ADMIN',     'Administrador del sistema — acceso total'),
+(2, 'GERENTE',   'Gerente de sucursal — reportes y gestión'),
+(3, 'EMPLEADO',  'Empleado de ventas — atención y ventas'),
+(4, 'LOGISTICA', 'Personal de logística — envíos y rutas'),
+(5, 'CLIENTE',   'Cliente web — compras y soporte');
+
+INSERT IGNORE INTO usuarios (nombre, email, password, rol_id, estado, intentos_fallidos, fecha_registro) VALUES
+('Admin',     'admin@perfulandia.cl',     '$2b$12$cNZ8L8xTbKH6BIpMt0TB/uk/PrbtNxvj7QxFUje1m1rTCefQ0/sMO', 1, 'ACTIVO', 0, NOW()),
+('Gerente',   'gerente@perfulandia.cl',   '$2b$12$cNZ8L8xTbKH6BIpMt0TB/uk/PrbtNxvj7QxFUje1m1rTCefQ0/sMO', 2, 'ACTIVO', 0, NOW()),
+('Empleado',  'empleado@perfulandia.cl',  '$2b$12$cNZ8L8xTbKH6BIpMt0TB/uk/PrbtNxvj7QxFUje1m1rTCefQ0/sMO', 3, 'ACTIVO', 0, NOW()),
+('Logística', 'logistica@perfulandia.cl', '$2b$12$cNZ8L8xTbKH6BIpMt0TB/uk/PrbtNxvj7QxFUje1m1rTCefQ0/sMO', 4, 'ACTIVO', 0, NOW()),
+('Cliente',   'cliente@gmail.com',        '$2b$12$cNZ8L8xTbKH6BIpMt0TB/uk/PrbtNxvj7QxFUje1m1rTCefQ0/sMO', 5, 'ACTIVO', 0, NOW());
 
 -- ═══════════════════════════════════════════════════════════════
 -- HU-09: Seed de Permisos y asignaciones por rol

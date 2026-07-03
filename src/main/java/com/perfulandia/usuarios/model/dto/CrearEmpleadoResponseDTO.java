@@ -1,7 +1,6 @@
 package com.perfulandia.usuarios.model.dto;
 
 import com.perfulandia.usuarios.model.enums.EstadoUsuario;
-import com.perfulandia.usuarios.model.enums.Rol;
 
 /**
  * DTO para la respuesta de creación de empleado.
@@ -11,7 +10,7 @@ public record CrearEmpleadoResponseDTO(
         Long id,
         String nombre,
         String email,
-        Rol rol,
+        String rol,
         EstadoUsuario estado,
         String direccion,
         String metodoPagoOfuscado,

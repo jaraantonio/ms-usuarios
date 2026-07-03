@@ -5,10 +5,11 @@ import com.perfulandia.usuarios.exception.CredencialesInvalidasException;
 import com.perfulandia.usuarios.exception.RecursoDuplicadoException;
 import com.perfulandia.usuarios.exception.RecursoNoEncontradoException;
 import com.perfulandia.usuarios.model.dto.*;
+import com.perfulandia.usuarios.model.entity.Rol;
 import com.perfulandia.usuarios.model.entity.TokenRecuperacion;
 import com.perfulandia.usuarios.model.entity.Usuario;
 import com.perfulandia.usuarios.model.enums.EstadoUsuario;
-import com.perfulandia.usuarios.model.enums.Rol;
+import com.perfulandia.usuarios.repository.RolRepository;
 import com.perfulandia.usuarios.repository.TokenRecuperacionRepository;
 import com.perfulandia.usuarios.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final TokenRecuperacionRepository tokenRecuperacionRepository;
+    private final RolRepository rolRepository;
     private final PasswordEncoder passwordEncoder;
     private final NotificacionesWebClient notificacionesWebClient;
 
@@ -49,7 +51,8 @@ public class UsuarioService {
         usuario.setEmail(dto.email());
         usuario.setTelefono(dto.telefono());
         usuario.setPassword(passwordEncoder.encode(dto.password()));
-        usuario.setRol(Rol.CLIENTE);
+        usuario.setRol(rolRepository.findByNombre("CLIENTE")
+                .orElseThrow(() -> new RuntimeException("Rol CLIENTE no encontrado en BD")));
         usuario.setEstado(EstadoUsuario.ACTIVO);
         usuario.setDireccion(dto.direccion());
         // HU-01: Solo ofuscar si hay método de pago; null si no se proporcionó
@@ -89,7 +92,7 @@ public class UsuarioService {
         usuarioRepository.save(usuario);
 
         log.info("Login exitoso para: {}", usuario.getEmail());
-        return new LoginResponseDTO(usuario.getRol().name());
+        return new LoginResponseDTO(usuario.getRol().getNombre());
     }
 
     // ============================================================
@@ -217,10 +220,14 @@ public class UsuarioService {
         List<Usuario> usuarios;
 
         if (rol != null && estado != null) {
+            Rol rolEntity = rolRepository.findByNombre(rol)
+                    .orElseThrow(() -> new IllegalArgumentException("Rol inválido: " + rol));
             usuarios = usuarioRepository.findByRolAndEstado(
-                    Rol.valueOf(rol), EstadoUsuario.valueOf(estado));
+                    rolEntity, EstadoUsuario.valueOf(estado));
         } else if (rol != null) {
-            usuarios = usuarioRepository.findByRol(Rol.valueOf(rol));
+            Rol rolEntity = rolRepository.findByNombre(rol)
+                    .orElseThrow(() -> new IllegalArgumentException("Rol inválido: " + rol));
+            usuarios = usuarioRepository.findByRol(rolEntity);
         } else if (estado != null) {
             usuarios = usuarioRepository.findByEstado(EstadoUsuario.valueOf(estado));
         } else {
@@ -247,7 +254,9 @@ public class UsuarioService {
         usuario.setNombre(dto.nombre());
         usuario.setEmail(dto.email());
         usuario.setPassword(passwordEncoder.encode(passwordTemporal));
-        usuario.setRol(dto.rol());
+        Rol rolEntity = rolRepository.findByNombre(dto.rol())
+                .orElseThrow(() -> new IllegalArgumentException("Rol inválido: " + dto.rol()));
+        usuario.setRol(rolEntity);
         usuario.setEstado(EstadoUsuario.ACTIVO);
         usuario.setMetodoPagoOfuscado(null);
         usuario.setIdSucursalAsignada(dto.idSucursalAsignada());
@@ -259,7 +268,7 @@ public class UsuarioService {
                 guardado.getId(),
                 guardado.getNombre(),
                 guardado.getEmail(),
-                guardado.getRol(),
+                guardado.getRol().getNombre(),
                 guardado.getEstado(),
                 guardado.getDireccion(),
                 guardado.getMetodoPagoOfuscado(),
@@ -277,13 +286,15 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
 
-        if (usuario.getRol() == Rol.ADMIN && dto.rol() != Rol.ADMIN) {
+        if ("ADMIN".equals(usuario.getRol().getNombre()) && !"ADMIN".equals(dto.rol())) {
             throw new IllegalArgumentException("No se puede cambiar el rol de un ADMIN a otro rol");
         }
 
+        Rol nuevoRol = rolRepository.findByNombre(dto.rol())
+                .orElseThrow(() -> new IllegalArgumentException("Rol inválido: " + dto.rol()));
         usuario.setNombre(dto.nombre());
         usuario.setEmail(dto.email());
-        usuario.setRol(dto.rol());
+        usuario.setRol(nuevoRol);
         usuario.setIdSucursalAsignada(dto.idSucursalAsignada());
         Usuario guardado = usuarioRepository.save(usuario);
         log.info("Usuario actualizado exitosamente ID: {}", id);
@@ -300,7 +311,7 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
 
-        if (usuario.getRol() == Rol.ADMIN) {
+        if ("ADMIN".equals(usuario.getRol().getNombre())) {
             throw new IllegalArgumentException("No se puede desactivar a un usuario ADMIN");
         }
 
@@ -341,7 +352,7 @@ public class UsuarioService {
                 usuario.getNombre(),
                 usuario.getEmail(),
                 usuario.getTelefono(),
-                usuario.getRol(),
+                usuario.getRol().getNombre(),
                 usuario.getEstado(),
                 usuario.getDireccion(),
                 usuario.getMetodoPagoOfuscado());

@@ -2,9 +2,9 @@
 
 ## Descripción
 
-Microservicio de gestión de identidades, autenticación, roles y recuperación de contraseña para Perfulandia SPA. Gestiona el registro de clientes, inicio de sesión, perfiles de usuario y administración de empleados. Se integra con ms-notificaciones para registrar notificaciones de recuperación de contraseña (HU-44a).
+Microservicio de gestión de identidades, autenticación, roles y recuperación de contraseña para Perfulandia SPA. Gestiona el registro de clientes, inicio de sesión con bloqueo tras 3 intentos fallidos, perfiles de usuario, administración de empleados por parte de ADMIN, y un sistema completo de permisos por rol. Se integra con ms-notificaciones para registrar notificaciones de recuperación de contraseña (HU-44).
 
-- Historias de usuario: HU-01 a HU-09, HU-44, HU-45 y HU-52.
+- Historias de usuario: HU-01 a HU-09, HU-44, HU-45, HU-52, HU-58, HU-59.
 - Swagger/OpenAPI disponible en: http://localhost:8081/swagger-ui.html
 
 ## Estudiantes
@@ -50,18 +50,18 @@ Al iniciar la aplicación se insertan automáticamente 5 usuarios, uno por cada 
 
 | Método | Ruta | HU | Descripción |
 |--------|------|----|-------------|
-| POST | `/api/auth/registro` | HU-01 | Registrar cliente |
-| POST | `/api/auth/login` | HU-02 | Iniciar sesión |
+| POST | `/api/auth/registro` | HU-01 | Registrar cliente (rol CLIENTE) |
+| POST | `/api/auth/login` | HU-02 | Iniciar sesión (bloqueo tras 3 intentos fallidos) |
 | GET | `/api/usuarios/{id}/perfil` | HU-03 | Obtener perfil por ID de usuario |
 | PUT | `/api/usuarios/{id}/perfil` | HU-04 | Actualizar nombre, dirección y método de pago |
 | PUT | `/api/usuarios/{id}/password` | HU-CP | Cambiar contraseña (usuario autenticado) |
 | POST | `/api/auth/logout` | HU-45 | Cerrar sesión |
-| POST | `/api/auth/recuperar` | HU-44a | Solicitar recuperación de contraseña (registra notificación con token) |
-| POST | `/api/auth/restablecer` | HU-44b | Restablecer contraseña con token |
-| GET | `/api/usuarios` | HU-06 | Listar usuarios (paginado, filtros por `?rol=` y `?estado=`) |
-| POST | `/api/usuarios` | HU-05 | Crear empleado (contraseña temporal automática) |
-| PUT | `/api/usuarios/{id}` | HU-07 | Actualizar usuario (nombre, email, rol) |
-| DELETE | `/api/usuarios/{id}` | HU-08 | Desactivar usuario (borrado lógico) |
+| POST | `/api/auth/recuperar` | HU-44 | Solicitar recuperación de contraseña (registra notificación con token en ms-notificaciones) |
+| POST | `/api/auth/restablecer` | HU-44 | Restablecer contraseña con token (válido 15 min) |
+| GET | `/api/usuarios` | HU-06 | Listar usuarios con filtros `?rol=` y `?estado=` |
+| POST | `/api/usuarios` | HU-05 | Crear empleado (ADMIN) — devuelve contraseña temporal |
+| PUT | `/api/usuarios/{id}` | HU-07 | Actualizar usuario (ADMIN): nombre, email, rol |
+| DELETE | `/api/usuarios/{id}` | HU-08 | Desactivar usuario (borrado lógico a INACTIVO) |
 | PUT | `/api/usuarios/{id}/desbloquear` | HU-02 | Desbloquear cuenta bloqueada (solo ADMIN) |
 | GET | `/api/usuarios/permisos` | HU-09 | Listar todos los permisos disponibles |
 | GET | `/api/usuarios/roles/{rol}/permisos` | HU-09 | Obtener permisos asignados a un rol |
@@ -199,7 +199,7 @@ PUT /api/usuarios/1/password
 - Contraseña actual incorrecta → 401 Unauthorized
 - Nueva contraseña debe cumplir con la política de contraseñas (mínimo 8 caracteres, mayúscula, minúscula y número)
 
-### POST /api/auth/recuperar (HU-44a)
+### POST /api/auth/recuperar (HU-44)
 
 ```json
 // Request
@@ -214,7 +214,7 @@ PUT /api/usuarios/1/password
 - El token se puede visualizar consultando `GET /api/notificaciones/ultimo?destinatario=...` en ms-notificaciones
 - Por seguridad, la API de usuarios nunca devuelve el token en la respuesta
 
-### POST /api/auth/restablecer (HU-44b)
+### POST /api/auth/restablecer (HU-44)
 
 ```json
 // Request
@@ -232,7 +232,7 @@ PUT /api/usuarios/1/password
 - Token expirado (15 min) → 400 Bad Request
 - Nueva contraseña debe cumplir con política de contraseñas
 
-### POST /api/usuarios — Crear empleado
+### POST /api/usuarios — Crear empleado (HU-05)
 
 ```json
 // Request
@@ -257,19 +257,19 @@ PUT /api/usuarios/1/password
 }
 ```
 
-Rol puede ser: `ADMIN`, `CLIENTE`, `EMPLEADO`, `GERENTE`, `LOGISTICA`
+Rol puede ser: `ADMIN`, `CLIENTE`, `EMPLEADO`, `GERENTE`, `LOGISTICA`.
 
-### GET /api/usuarios — Listar usuarios
+### GET /api/usuarios — Listar usuarios (HU-06)
 
 ```
-GET /api/usuarios?page=0&size=10&rol=EMPLEADO&estado=ACTIVO
+GET /api/usuarios?rol=EMPLEADO&estado=ACTIVO
 
-Response: 200 OK → Page<PerfilResponseDTO>
+Response: 200 OK → List<PerfilResponseDTO>
 ```
 
-Parámetros opcionales: `rol`, `estado`, `page` (default 0), `size` (default 20)
+Parámetros opcionales: `rol`, `estado`.
 
-### PUT /api/usuarios/{id} — Actualizar usuario
+### PUT /api/usuarios/{id} — Actualizar usuario (HU-07)
 
 ```json
 // Request
@@ -284,7 +284,7 @@ Parámetros opcionales: `rol`, `estado`, `page` (default 0), `size` (default 20)
 
 **Regla:** No se puede cambiar el rol de un usuario ADMIN a otro rol.
 
-### DELETE /api/usuarios/{id} — Desactivar usuario
+### DELETE /api/usuarios/{id} — Desactivar usuario (HU-08)
 
 ```
 Response: 200 OK (borrado lógico: cambia estado a INACTIVO)
@@ -307,6 +307,50 @@ Response: 200 OK (cambia estado a ACTIVO, resetea intentos fallidos a 0)
 - Solo funciona si el usuario está INACTIVO (bloqueado por intentos fallidos)
 - Usuario no bloqueado → 400 Bad Request
 - Usuario inexistente → 404 Not Found
+
+### GET /api/usuarios/permisos (HU-09)
+
+```
+Response: 200 OK
+[
+  {
+    "id": 1,
+    "nombre": "GESTIONAR_USUARIOS",
+    "descripcion": "Crear, editar y desactivar usuarios",
+    "modulo": "USUARIOS"
+  },
+  ...
+]
+```
+
+### PUT /api/usuarios/roles/{rol}/permisos (HU-09)
+
+```json
+// Request: Asignar permisos a GERENTE
+PUT /api/usuarios/roles/GERENTE/permisos
+{
+  "permisoIds": [2, 4, 5, 6, 11]
+}
+
+// Response: 200 OK
+```
+
+**Permisos disponibles (12):**
+
+| ID | Permiso | Módulo |
+|----|---------|--------|
+| 1 | GESTIONAR_USUARIOS | USUARIOS |
+| 2 | VER_REPORTES | REPORTES |
+| 3 | GESTIONAR_TICKETS | ATENCION_CLIENTE |
+| 4 | GESTIONAR_PRODUCTOS | PRODUCTOS |
+| 5 | GESTIONAR_INVENTARIO | PRODUCTOS |
+| 6 | GESTIONAR_PEDIDOS | ENVIOS |
+| 7 | GESTIONAR_ENVIOS | ENVIOS |
+| 8 | GESTIONAR_VENTAS | VENTAS |
+| 9 | GESTIONAR_PROVEEDORES | PROVEEDORES |
+| 10 | GESTIONAR_PAGOS | PAGOS |
+| 11 | GESTIONAR_SUCURSALES | SUCURSALES |
+| 12 | CONFIGURAR_PERMISOS | USUARIOS |
 
 ## Configuración de base de datos
 

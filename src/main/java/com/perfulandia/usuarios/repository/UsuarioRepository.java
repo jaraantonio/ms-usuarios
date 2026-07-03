@@ -1,8 +1,8 @@
 package com.perfulandia.usuarios.repository;
 
+import com.perfulandia.usuarios.model.entity.Rol;
 import com.perfulandia.usuarios.model.entity.Usuario;
 import com.perfulandia.usuarios.model.enums.EstadoUsuario;
-import com.perfulandia.usuarios.model.enums.Rol;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

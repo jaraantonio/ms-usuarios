@@ -1,7 +1,7 @@
 package com.perfulandia.usuarios.model.entity;
 
+import com.perfulandia.usuarios.model.entity.Rol;
 import com.perfulandia.usuarios.model.enums.EstadoUsuario;
-import com.perfulandia.usuarios.model.enums.Rol;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -33,8 +33,8 @@ public class Usuario {
     @Column(nullable = false, length = 255)
     private String password;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "rol_id", nullable = false)
     private Rol rol;
 
     @Enumerated(EnumType.STRING)

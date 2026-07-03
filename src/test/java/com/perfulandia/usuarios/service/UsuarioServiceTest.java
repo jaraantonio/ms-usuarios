@@ -8,8 +8,9 @@ import com.perfulandia.usuarios.model.dto.*;
 import com.perfulandia.usuarios.model.entity.TokenRecuperacion;
 import com.perfulandia.usuarios.model.entity.Usuario;
 import com.perfulandia.usuarios.model.enums.EstadoUsuario;
-import com.perfulandia.usuarios.model.enums.Rol;
 import com.perfulandia.usuarios.repository.TokenRecuperacionRepository;
+import com.perfulandia.usuarios.model.entity.Rol;
+import com.perfulandia.usuarios.repository.RolRepository;
 import com.perfulandia.usuarios.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +34,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
 @DisplayName("UsuarioService - Pruebas unitarias")
 class UsuarioServiceTest {
 
@@ -48,20 +50,45 @@ class UsuarioServiceTest {
     @Mock
     private NotificacionesWebClient notificacionesWebClient;
 
+    @Mock
+    private RolRepository rolRepository;
+
     @InjectMocks
     private UsuarioService usuarioService;
 
     private Usuario usuarioActivo;
     private Usuario usuarioInactivo;
 
+    private Rol rolCliente;
+    private Rol rolEmpleado;
+    private Rol rolAdmin;
+    private Rol rolGerente;
+
     @BeforeEach
     void setUp() {
+        rolCliente = new Rol();
+        rolCliente.setId(1L);
+        rolCliente.setNombre("CLIENTE");
+        rolEmpleado = new Rol();
+        rolEmpleado.setId(2L);
+        rolEmpleado.setNombre("EMPLEADO");
+        rolAdmin = new Rol();
+        rolAdmin.setId(3L);
+        rolAdmin.setNombre("ADMIN");
+        rolGerente = new Rol();
+        rolGerente.setId(4L);
+        rolGerente.setNombre("GERENTE");
+
+        when(rolRepository.findByNombre("CLIENTE")).thenReturn(Optional.of(rolCliente));
+        when(rolRepository.findByNombre("EMPLEADO")).thenReturn(Optional.of(rolEmpleado));
+        when(rolRepository.findByNombre("ADMIN")).thenReturn(Optional.of(rolAdmin));
+        when(rolRepository.findByNombre("GERENTE")).thenReturn(Optional.of(rolGerente));
         usuarioActivo = new Usuario();
         usuarioActivo.setId(1L);
         usuarioActivo.setNombre("Juan Pérez");
         usuarioActivo.setEmail("juan@test.com");
         usuarioActivo.setPassword("encodedPass");
-        usuarioActivo.setRol(Rol.CLIENTE);
+        usuarioActivo.setRol(rolCliente);
         usuarioActivo.setEstado(EstadoUsuario.ACTIVO);
         usuarioActivo.setIntentosFallidos(0);
         usuarioActivo.setDireccion("Calle 123");
@@ -72,7 +99,7 @@ class UsuarioServiceTest {
         usuarioInactivo.setNombre("Ana Inactiva");
         usuarioInactivo.setEmail("ana@test.com");
         usuarioInactivo.setPassword("encodedPass");
-        usuarioInactivo.setRol(Rol.CLIENTE);
+        usuarioInactivo.setRol(rolCliente);
         usuarioInactivo.setEstado(EstadoUsuario.INACTIVO);
         usuarioInactivo.setIntentosFallidos(3);
     }
@@ -100,7 +127,7 @@ class UsuarioServiceTest {
             assertNotNull(result);
             assertEquals("Juan Pérez", result.nombre());
             assertEquals("juan@test.com", result.email());
-            assertEquals(Rol.CLIENTE, result.rol());
+            assertEquals("CLIENTE", result.rol());
             assertEquals(EstadoUsuario.ACTIVO, result.estado());
             assertEquals("****", result.metodoPagoOfuscado());
             verify(usuarioRepository, times(1)).save(any(Usuario.class));
@@ -219,7 +246,7 @@ class UsuarioServiceTest {
             assertNotNull(result);
             assertEquals(1L, result.id());
             assertEquals("juan@test.com", result.email());
-            assertEquals(Rol.CLIENTE, result.rol());
+            assertEquals("CLIENTE", result.rol());
         }
 
         @Test
@@ -411,7 +438,7 @@ class UsuarioServiceTest {
         @DisplayName("Debe crear usuario con rol asignado por admin")
         void crearUsuarioAdmin_Exito() {
             // Given
-            CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Empleado", "empleado@test.com", Rol.EMPLEADO, null);
+            CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Empleado", "empleado@test.com", "EMPLEADO", null);
             when(usuarioRepository.findByEmail(dto.email())).thenReturn(Optional.empty());
             when(passwordEncoder.encode(anyString())).thenReturn("encodedPwd");
             when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
@@ -426,7 +453,7 @@ class UsuarioServiceTest {
             // Then
             assertNotNull(result);
             assertEquals("empleado@test.com", result.email());
-            assertEquals(Rol.EMPLEADO, result.rol());
+            assertEquals("EMPLEADO", result.rol());
             assertEquals(EstadoUsuario.ACTIVO, result.estado());
             assertNull(result.metodoPagoOfuscado());
             assertNotNull(result.contrasenaTemporal());
@@ -438,7 +465,7 @@ class UsuarioServiceTest {
         @DisplayName("Debe lanzar RecursoDuplicadoException si email ya existe")
         void crearUsuarioAdmin_EmailDuplicado() {
             // Given
-            CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Duplicado", "juan@test.com", Rol.EMPLEADO, null);
+            CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Duplicado", "juan@test.com", "EMPLEADO", null);
             when(usuarioRepository.findByEmail(dto.email())).thenReturn(Optional.of(usuarioActivo));
 
             // When / Then
@@ -473,14 +500,14 @@ class UsuarioServiceTest {
         @DisplayName("Debe filtrar por rol correctamente")
         void listarUsuarios_PorRol() {
             // Given
-            when(usuarioRepository.findByRol(Rol.CLIENTE)).thenReturn(List.of(usuarioActivo));
+            when(usuarioRepository.findByRol(rolCliente)).thenReturn(List.of(usuarioActivo));
 
             // When
             List<PerfilResponseDTO> result = usuarioService.listarUsuarios("CLIENTE", null);
 
             // Then
             assertEquals(1, result.size());
-            verify(usuarioRepository, times(1)).findByRol(Rol.CLIENTE);
+            verify(usuarioRepository, times(1)).findByRol(rolCliente);
         }
 
         @Test
@@ -501,7 +528,7 @@ class UsuarioServiceTest {
         @DisplayName("Debe filtrar por rol y estado combinados")
         void listarUsuarios_PorRolYEstado() {
             // Given
-            when(usuarioRepository.findByRolAndEstado(Rol.CLIENTE, EstadoUsuario.ACTIVO))
+            when(usuarioRepository.findByRolAndEstado(rolCliente, EstadoUsuario.ACTIVO))
                     .thenReturn(List.of(usuarioActivo));
 
             // When
@@ -509,7 +536,7 @@ class UsuarioServiceTest {
 
             // Then
             assertEquals(1, result.size());
-            verify(usuarioRepository, times(1)).findByRolAndEstado(Rol.CLIENTE, EstadoUsuario.ACTIVO);
+            verify(usuarioRepository, times(1)).findByRolAndEstado(rolCliente, EstadoUsuario.ACTIVO);
         }
 
         @Test
@@ -540,10 +567,10 @@ class UsuarioServiceTest {
         @DisplayName("Debe actualizar datos de usuario correctamente")
         void actualizarUsuarioAdmin_Exito() {
             // Given
-            ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Nuevo", "nuevo@test.com", Rol.GERENTE, null);
+            ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Nuevo", "nuevo@test.com", "GERENTE", null);
             Usuario target = new Usuario();
             target.setId(5L);
-            target.setRol(Rol.EMPLEADO);
+            target.setRol(rolEmpleado);
             when(usuarioRepository.findById(5L)).thenReturn(Optional.of(target));
             when(usuarioRepository.save(any(Usuario.class))).thenReturn(target);
 
@@ -553,7 +580,7 @@ class UsuarioServiceTest {
             // Then
             assertNotNull(result);
             assertEquals("nuevo@test.com", result.email());
-            assertEquals(Rol.GERENTE, result.rol());
+            assertEquals("GERENTE", result.rol());
             verify(usuarioRepository, times(1)).save(any(Usuario.class));
         }
 
@@ -563,8 +590,8 @@ class UsuarioServiceTest {
             // Given
             Usuario admin = new Usuario();
             admin.setId(1L);
-            admin.setRol(Rol.ADMIN);
-            ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Admin", "admin@test.com", Rol.EMPLEADO, null);
+            admin.setRol(rolAdmin);
+            ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Admin", "admin@test.com", "EMPLEADO", null);
             when(usuarioRepository.findById(1L)).thenReturn(Optional.of(admin));
 
             // When / Then
@@ -577,7 +604,7 @@ class UsuarioServiceTest {
         @DisplayName("Debe lanzar RecursoNoEncontradoException si el usuario no existe")
         void actualizarUsuarioAdmin_NoEncontrado() {
             // Given
-            ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Nuevo", "nuevo@test.com", Rol.EMPLEADO, null);
+            ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Nuevo", "nuevo@test.com", "EMPLEADO", null);
             when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
 
             // When / Then
@@ -601,7 +628,7 @@ class UsuarioServiceTest {
             Usuario target = new Usuario();
             target.setId(5L);
             target.setEstado(EstadoUsuario.ACTIVO);
-            target.setRol(Rol.EMPLEADO);
+            target.setRol(rolEmpleado);
             when(usuarioRepository.findById(5L)).thenReturn(Optional.of(target));
 
             // When
@@ -618,7 +645,7 @@ class UsuarioServiceTest {
             // Given
             Usuario admin = new Usuario();
             admin.setId(1L);
-            admin.setRol(Rol.ADMIN);
+            admin.setRol(rolAdmin);
             when(usuarioRepository.findById(1L)).thenReturn(Optional.of(admin));
 
             // When / Then

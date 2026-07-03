@@ -1,6 +1,5 @@
 package com.perfulandia.usuarios.model.dto;
 
-import com.perfulandia.usuarios.model.enums.Rol;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -370,7 +369,7 @@ class DTOValidationTest {
     @DisplayName("CrearEmpleadoDTO con datos válidos no debe tener violaciones")
     void crearEmpleadoDTO_Valido() {
         // Given
-        CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Empleado", "emp@test.com", Rol.EMPLEADO, null);
+        CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Empleado", "emp@test.com", "EMPLEADO", null);
 
         // When
         Set<ConstraintViolation<CrearEmpleadoDTO>> violations = validator.validate(dto);
@@ -383,7 +382,7 @@ class DTOValidationTest {
     @DisplayName("CrearEmpleadoDTO con nombre vacío debe tener violación")
     void crearEmpleadoDTO_NombreVacio() {
         // Given
-        CrearEmpleadoDTO dto = new CrearEmpleadoDTO("", "emp@test.com", Rol.EMPLEADO, null);
+        CrearEmpleadoDTO dto = new CrearEmpleadoDTO("", "emp@test.com", "EMPLEADO", null);
 
         // When
         Set<ConstraintViolation<CrearEmpleadoDTO>> violations = validator.validate(dto);
@@ -396,7 +395,7 @@ class DTOValidationTest {
     @DisplayName("CrearEmpleadoDTO con email inválido debe tener violación")
     void crearEmpleadoDTO_EmailInvalido() {
         // Given
-        CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Emp", "invalido", Rol.EMPLEADO, null);
+        CrearEmpleadoDTO dto = new CrearEmpleadoDTO("Emp", "invalido", "EMPLEADO", null);
 
         // When
         Set<ConstraintViolation<CrearEmpleadoDTO>> violations = validator.validate(dto);
@@ -426,7 +425,7 @@ class DTOValidationTest {
     @DisplayName("ActualizarEmpleadoDTO con datos válidos no debe tener violaciones")
     void actualizarEmpleadoDTO_Valido() {
         // Given
-        ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Emp", "emp@test.com", Rol.GERENTE, null);
+        ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Emp", "emp@test.com", "GERENTE", null);
 
         // When
         Set<ConstraintViolation<ActualizarEmpleadoDTO>> violations = validator.validate(dto);
@@ -439,7 +438,7 @@ class DTOValidationTest {
     @DisplayName("ActualizarEmpleadoDTO con nombre vacío debe tener violación")
     void actualizarEmpleadoDTO_NombreVacio() {
         // Given
-        ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("", "emp@test.com", Rol.EMPLEADO, null);
+        ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("", "emp@test.com", "EMPLEADO", null);
 
         // When
         Set<ConstraintViolation<ActualizarEmpleadoDTO>> violations = validator.validate(dto);
@@ -452,7 +451,7 @@ class DTOValidationTest {
     @DisplayName("ActualizarEmpleadoDTO con nombre muy corto debe tener violación")
     void actualizarEmpleadoDTO_NombreMuyCorto() {
         // Given
-        ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("AB", "emp@test.com", Rol.EMPLEADO, null);
+        ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("AB", "emp@test.com", "EMPLEADO", null);
 
         // When
         Set<ConstraintViolation<ActualizarEmpleadoDTO>> violations = validator.validate(dto);
@@ -465,7 +464,7 @@ class DTOValidationTest {
     @DisplayName("ActualizarEmpleadoDTO con email inválido debe tener violación")
     void actualizarEmpleadoDTO_EmailInvalido() {
         // Given
-        ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Emp", "invalido", Rol.EMPLEADO, null);
+        ActualizarEmpleadoDTO dto = new ActualizarEmpleadoDTO("Emp", "invalido", "EMPLEADO", null);
 
         // When
         Set<ConstraintViolation<ActualizarEmpleadoDTO>> violations = validator.validate(dto);

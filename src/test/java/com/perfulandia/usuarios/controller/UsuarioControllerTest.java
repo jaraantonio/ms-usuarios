@@ -8,7 +8,6 @@ import com.perfulandia.usuarios.exception.RecursoDuplicadoException;
 import com.perfulandia.usuarios.exception.RecursoNoEncontradoException;
 import com.perfulandia.usuarios.model.dto.*;
 import com.perfulandia.usuarios.model.enums.EstadoUsuario;
-import com.perfulandia.usuarios.model.enums.Rol;
 import com.perfulandia.usuarios.service.UsuarioService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,7 +52,7 @@ class UsuarioControllerTest {
     void registrar_DebeRetornar201() throws Exception {
         RegistroRequestDTO req = new RegistroRequestDTO("Juan", "juan@test.com", "Juan12345", "Calle 123", "+56912345678");
         PerfilResponseDTO res = new PerfilResponseDTO(1L, "Juan", "juan@test.com", null,
-                Rol.CLIENTE, EstadoUsuario.ACTIVO, "Calle 123", "****");
+                "CLIENTE", EstadoUsuario.ACTIVO, "Calle 123", "****");
 
         when(usuarioService.registrarCliente(any(RegistroRequestDTO.class))).thenReturn(res);
 
@@ -179,7 +178,7 @@ class UsuarioControllerTest {
     @DisplayName("GET /api/usuarios/{id}/perfil debe retornar 200")
     void obtenerPerfil_DebeRetornar200() throws Exception {
         PerfilResponseDTO res = new PerfilResponseDTO(1L, "Juan", "juan@test.com", null,
-                Rol.CLIENTE, EstadoUsuario.ACTIVO, "Calle 123", "**** 1234");
+                "CLIENTE", EstadoUsuario.ACTIVO, "Calle 123", "**** 1234");
 
         when(usuarioService.obtenerPerfil(1L)).thenReturn(res);
 
@@ -210,7 +209,7 @@ class UsuarioControllerTest {
     void actualizarPerfil_DebeRetornar200() throws Exception {
         ActualizarPerfilDTO req = new ActualizarPerfilDTO("Nuevo Nombre", "Nueva Direccion", "1234567890123456");
         PerfilResponseDTO res = new PerfilResponseDTO(1L, "Nuevo Nombre", "juan@test.com", null,
-                Rol.CLIENTE, EstadoUsuario.ACTIVO, "Nueva Direccion", "**** 3456");
+                "CLIENTE", EstadoUsuario.ACTIVO, "Nueva Direccion", "**** 3456");
 
         when(usuarioService.actualizarPerfil(eq(1L), any(ActualizarPerfilDTO.class))).thenReturn(res);
 
@@ -255,9 +254,9 @@ class UsuarioControllerTest {
     @Test
     @DisplayName("POST /api/usuarios (ADMIN) debe retornar 201 con contraseña temporal")
     void crearUsuarioAdmin_DebeRetornar201() throws Exception {
-        CrearEmpleadoDTO req = new CrearEmpleadoDTO("Empleado", "emp@test.com", Rol.EMPLEADO, null);
+        CrearEmpleadoDTO req = new CrearEmpleadoDTO("Empleado", "emp@test.com", "EMPLEADO", null);
         CrearEmpleadoResponseDTO res = new CrearEmpleadoResponseDTO(10L, "Empleado", "emp@test.com",
-                Rol.EMPLEADO, EstadoUsuario.ACTIVO, null, null, "TempPass123");
+                "EMPLEADO", EstadoUsuario.ACTIVO, null, null, "TempPass123");
 
         when(usuarioService.crearUsuarioAdmin(any(CrearEmpleadoDTO.class))).thenReturn(res);
 
@@ -274,7 +273,7 @@ class UsuarioControllerTest {
     @DisplayName("POST /api/usuarios (ADMIN) debe retornar 400 cuando email duplicado")
     void crearUsuarioAdmin_DebeRetornar400_CuandoEmailDuplicado() throws Exception {
         // Given
-        CrearEmpleadoDTO req = new CrearEmpleadoDTO("Empleado", "dup@test.com", Rol.EMPLEADO, null);
+        CrearEmpleadoDTO req = new CrearEmpleadoDTO("Empleado", "dup@test.com", "EMPLEADO", null);
         when(usuarioService.crearUsuarioAdmin(any(CrearEmpleadoDTO.class)))
                 .thenThrow(new RecursoDuplicadoException("El correo ya está registrado"));
 
@@ -293,9 +292,9 @@ class UsuarioControllerTest {
     @Test
     @DisplayName("PUT /api/usuarios/{id} (ADMIN) debe retornar 200")
     void actualizarUsuarioAdmin_DebeRetornar200() throws Exception {
-        ActualizarEmpleadoDTO req = new ActualizarEmpleadoDTO("Modificado", "mod@test.com", Rol.GERENTE, null);
+        ActualizarEmpleadoDTO req = new ActualizarEmpleadoDTO("Modificado", "mod@test.com", "GERENTE", null);
         PerfilResponseDTO res = new PerfilResponseDTO(5L, "Modificado", "mod@test.com", null,
-                Rol.GERENTE, EstadoUsuario.ACTIVO, null, "****");
+                "GERENTE", EstadoUsuario.ACTIVO, null, "****");
 
         when(usuarioService.actualizarUsuarioAdmin(eq(5L), any(ActualizarEmpleadoDTO.class))).thenReturn(res);
 
@@ -311,7 +310,7 @@ class UsuarioControllerTest {
     @DisplayName("PUT /api/usuarios/{id} (ADMIN) debe retornar 404 cuando usuario no existe")
     void actualizarUsuarioAdmin_DebeRetornar404() throws Exception {
         // Given
-        ActualizarEmpleadoDTO req = new ActualizarEmpleadoDTO("Nadie", "nadie@test.com", Rol.EMPLEADO, null);
+        ActualizarEmpleadoDTO req = new ActualizarEmpleadoDTO("Nadie", "nadie@test.com", "EMPLEADO", null);
         when(usuarioService.actualizarUsuarioAdmin(eq(99L), any(ActualizarEmpleadoDTO.class)))
                 .thenThrow(new RecursoNoEncontradoException("Usuario no encontrado con ID: 99"));
 
