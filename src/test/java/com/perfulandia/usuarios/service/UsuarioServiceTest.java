@@ -306,7 +306,7 @@ class UsuarioServiceTest {
             // Then — siempre retorna mensaje genérico (no revela si el correo existe)
             assertNotNull(result);
             assertTrue(result.contains("correo"));
-            verify(notificacionesWebClient, never()).enviarCorreo(any());
+            verify(notificacionesWebClient, never()).enviarNotificacion(any(), anyString());
             verify(tokenRecuperacionRepository, never()).save(any(TokenRecuperacion.class));
         }
 
@@ -323,7 +323,7 @@ class UsuarioServiceTest {
             assertNotNull(result);
             assertTrue(result.contains("correo"));
             verify(tokenRecuperacionRepository, times(1)).save(any(TokenRecuperacion.class));
-            verify(notificacionesWebClient, times(1)).enviarCorreo(any(CorreoRequestDTO.class));
+            verify(notificacionesWebClient, times(1)).enviarNotificacion(any(CorreoRequestDTO.class), anyString());
         }
     }
 
@@ -511,23 +511,19 @@ class UsuarioServiceTest {
         }
 
         @Test
-        @DisplayName("Debe retornar lista vacía si el valor del rol es inválido")
+        @DisplayName("Debe lanzar excepción si el valor del rol es inválido")
         void listarUsuarios_RolInvalido() {
-            // When
-            List<PerfilResponseDTO> result = usuarioService.listarUsuarios("ROL_INEXISTENTE", null);
-
-            // Then
-            assertTrue(result.isEmpty());
+            // When / Then
+            assertThrows(IllegalArgumentException.class,
+                    () -> usuarioService.listarUsuarios("ROL_INEXISTENTE", null));
         }
 
         @Test
-        @DisplayName("Debe retornar lista vacía si el valor del estado es inválido")
+        @DisplayName("Debe lanzar excepción si el valor del estado es inválido")
         void listarUsuarios_EstadoInvalido() {
-            // When
-            List<PerfilResponseDTO> result = usuarioService.listarUsuarios(null, "ESTADO_INEXISTENTE");
-
-            // Then
-            assertTrue(result.isEmpty());
+            // When / Then
+            assertThrows(IllegalArgumentException.class,
+                    () -> usuarioService.listarUsuarios(null, "ESTADO_INEXISTENTE"));
         }
     }
 

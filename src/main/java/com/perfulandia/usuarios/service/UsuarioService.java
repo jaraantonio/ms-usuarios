@@ -142,12 +142,12 @@ public class UsuarioService {
             tokenRecuperacionRepository.save(tr);
             log.info("Token de recuperación generado para: {}", email);
 
-            // Intentar enviar el token por correo (si falla, el token igual se guarda)
+            // Registrar la notificación con el token (visible en logs de notificaciones)
             try {
-                notificacionesWebClient.enviarCorreo(new CorreoRequestDTO(email));
-                log.info("Correo de recuperación enviado a: {}", email);
+                notificacionesWebClient.enviarNotificacion(new CorreoRequestDTO(email), token);
+                log.info("Notificación de recuperación registrada para: {}", email);
             } catch (Exception e) {
-                log.error("No se pudo enviar el correo de recuperación a {}: {}", email, e.getMessage());
+                log.error("No se pudo registrar la notificación de recuperación para {}: {}", email, e.getMessage());
             }
 
             // Por seguridad, no devolvemos el token en la respuesta.
@@ -200,20 +200,15 @@ public class UsuarioService {
 
         List<Usuario> usuarios;
 
-        try {
-            if (rol != null && estado != null) {
-                usuarios = usuarioRepository.findByRolAndEstado(
-                        Rol.valueOf(rol), EstadoUsuario.valueOf(estado));
-            } else if (rol != null) {
-                usuarios = usuarioRepository.findByRol(Rol.valueOf(rol));
-            } else if (estado != null) {
-                usuarios = usuarioRepository.findByEstado(EstadoUsuario.valueOf(estado));
-            } else {
-                usuarios = usuarioRepository.findAll();
-            }
-        } catch (IllegalArgumentException e) {
-            log.warn("Filtro inválido para listar usuarios - rol: {}, estado: {}", rol, estado);
-            usuarios = List.of();
+        if (rol != null && estado != null) {
+            usuarios = usuarioRepository.findByRolAndEstado(
+                    Rol.valueOf(rol), EstadoUsuario.valueOf(estado));
+        } else if (rol != null) {
+            usuarios = usuarioRepository.findByRol(Rol.valueOf(rol));
+        } else if (estado != null) {
+            usuarios = usuarioRepository.findByEstado(EstadoUsuario.valueOf(estado));
+        } else {
+            usuarios = usuarioRepository.findAll();
         }
 
         return usuarios.stream().map(this::toPerfilResponse).collect(Collectors.toList());
@@ -242,7 +237,7 @@ public class UsuarioService {
         usuario.setIdSucursalAsignada(dto.idSucursalAsignada());
 
         Usuario guardado = usuarioRepository.save(usuario);
-        log.info("Usuario creado con ID: {} - contraseña temporal: {}", guardado.getId(), passwordTemporal);
+        log.info("Usuario creado con ID: {} (contraseña temporal generada)", guardado.getId());
         return toPerfilResponse(guardado);
     }
 
