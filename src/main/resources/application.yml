@@ -25,10 +25,6 @@ spring:
 server:
   port: 8081
 
-jwt:
-  secret: ${JWT_SECRET:perfulandiaclavesecreta123456789}
-  expiration: 3600000
-
 management:
   endpoints:
     web:

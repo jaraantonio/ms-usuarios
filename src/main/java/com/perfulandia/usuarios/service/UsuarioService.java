@@ -5,19 +5,17 @@ import com.perfulandia.usuarios.exception.CredencialesInvalidasException;
 import com.perfulandia.usuarios.exception.RecursoDuplicadoException;
 import com.perfulandia.usuarios.exception.RecursoNoEncontradoException;
 import com.perfulandia.usuarios.model.dto.*;
-import com.perfulandia.usuarios.model.entity.TokenInvalidado;
 import com.perfulandia.usuarios.model.entity.TokenRecuperacion;
 import com.perfulandia.usuarios.model.entity.Usuario;
 import com.perfulandia.usuarios.model.enums.EstadoUsuario;
 import com.perfulandia.usuarios.model.enums.Rol;
-import com.perfulandia.usuarios.repository.TokenInvalidadoRepository;
 import com.perfulandia.usuarios.repository.TokenRecuperacionRepository;
 import com.perfulandia.usuarios.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,10 +29,8 @@ import java.util.UUID;
 public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
-    private final TokenInvalidadoRepository tokenInvalidadoRepository;
     private final TokenRecuperacionRepository tokenRecuperacionRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
     private final NotificacionesWebClient notificacionesWebClient;
 
     // ============================================================
@@ -90,9 +86,8 @@ public class UsuarioService {
         usuario.setIntentosFallidos(0);
         usuarioRepository.save(usuario);
 
-        String token = jwtService.generarToken(usuario.getId(), usuario.getEmail(), usuario.getRol().name());
         log.info("Login exitoso para: {}", usuario.getEmail());
-        return new LoginResponseDTO(token, usuario.getRol().name());
+        return new LoginResponseDTO(usuario.getRol().name());
     }
 
     // ============================================================
@@ -146,12 +141,22 @@ public class UsuarioService {
             tr.setUsado(false);
             tokenRecuperacionRepository.save(tr);
             log.info("Token de recuperación generado para: {}", email);
-            notificacionesWebClient.enviarCorreo(new CorreoRequestDTO(email));
-            return token;
+
+            // Intentar enviar el token por correo (si falla, el token igual se guarda)
+            try {
+                notificacionesWebClient.enviarCorreo(new CorreoRequestDTO(email));
+                log.info("Correo de recuperación enviado a: {}", email);
+            } catch (Exception e) {
+                log.error("No se pudo enviar el correo de recuperación a {}: {}", email, e.getMessage());
+            }
+
+            // Por seguridad, no devolvemos el token en la respuesta.
+            // El usuario debe revisar su correo electrónico.
+            return "Si el correo está registrado, recibirás un enlace de recuperación.";
         }
 
-        // No revela si el correo existe o no
-        return UUID.randomUUID().toString();
+        // No revela si el correo existe o no (mismo mensaje)
+        return "Si el correo está registrado, recibirás un enlace de recuperación.";
     }
 
     // ============================================================
@@ -187,44 +192,31 @@ public class UsuarioService {
     }
 
     // ============================================================
-    // HU-45: Cerrar sesión
-    // ============================================================
-    @Transactional
-    public void cerrarSesion(String token) {
-        log.info("Invalidando token (logout)");
-        TokenInvalidado ti = new TokenInvalidado();
-        ti.setToken(token);
-        ti.setFechaInvalidacion(LocalDateTime.now());
-        tokenInvalidadoRepository.save(ti);
-        log.info("Token invalidado exitosamente");
-    }
-
-    // ============================================================
     // HU-06: Listar usuarios (ADMIN)
     // ============================================================
     @Transactional(readOnly = true)
-    public Page<PerfilResponseDTO> listarUsuarios(Pageable pageable, String rol, String estado) {
+    public List<PerfilResponseDTO> listarUsuarios(String rol, String estado) {
         log.info("Listando usuarios - rol: {}, estado: {}", rol, estado);
 
-        Page<Usuario> usuarios;
+        List<Usuario> usuarios;
 
         try {
             if (rol != null && estado != null) {
                 usuarios = usuarioRepository.findByRolAndEstado(
-                        Rol.valueOf(rol), EstadoUsuario.valueOf(estado), pageable);
+                        Rol.valueOf(rol), EstadoUsuario.valueOf(estado));
             } else if (rol != null) {
-                usuarios = usuarioRepository.findByRol(Rol.valueOf(rol), pageable);
+                usuarios = usuarioRepository.findByRol(Rol.valueOf(rol));
             } else if (estado != null) {
-                usuarios = usuarioRepository.findByEstado(EstadoUsuario.valueOf(estado), pageable);
+                usuarios = usuarioRepository.findByEstado(EstadoUsuario.valueOf(estado));
             } else {
-                usuarios = usuarioRepository.findAll(pageable);
+                usuarios = usuarioRepository.findAll();
             }
         } catch (IllegalArgumentException e) {
             log.warn("Filtro inválido para listar usuarios - rol: {}, estado: {}", rol, estado);
-            usuarios = Page.empty(pageable);
+            usuarios = List.of();
         }
 
-        return usuarios.map(this::toPerfilResponse);
+        return usuarios.stream().map(this::toPerfilResponse).collect(Collectors.toList());
     }
 
     // ============================================================

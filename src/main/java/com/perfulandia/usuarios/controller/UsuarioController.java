@@ -5,16 +5,14 @@ import com.perfulandia.usuarios.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -45,10 +43,10 @@ public class UsuarioController {
     // ============================================================
     @Operation(
             summary = "Iniciar sesión",
-            description = "Autentica al usuario con email y contraseña. Retorna token JWT con vigencia de 1 hora. Bloquea la cuenta tras 3 intentos fallidos."
+            description = "Autentica al usuario con email y contraseña. Bloquea la cuenta tras 3 intentos fallidos."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Login exitoso, retorna token JWT"),
+            @ApiResponse(responseCode = "200", description = "Login exitoso"),
             @ApiResponse(responseCode = "401", description = "Credenciales inválidas o cuenta bloqueada")
     })
     @PostMapping("/auth/login")
@@ -61,17 +59,15 @@ public class UsuarioController {
     // ============================================================
     @Operation(
             summary = "Obtener perfil",
-            description = "Obtiene los datos del perfil del usuario autenticado. Valida que el ID del token coincida con el ID solicitado."
+            description = "Obtiene los datos del perfil de un usuario por su ID."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Perfil obtenido exitosamente"),
-            @ApiResponse(responseCode = "401", description = "Token no válido o expirado"),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
-    @SecurityRequirement(name = "bearerAuth")
-    @GetMapping("/usuarios/perfil")
-    public ResponseEntity<PerfilResponseDTO> obtenerPerfil(@RequestAttribute("userId") Long userId) {
-        return ResponseEntity.ok(usuarioService.obtenerPerfil(userId));
+    @GetMapping("/usuarios/{id}/perfil")
+    public ResponseEntity<PerfilResponseDTO> obtenerPerfil(@PathVariable Long id) {
+        return ResponseEntity.ok(usuarioService.obtenerPerfil(id));
     }
 
     // ============================================================
@@ -79,19 +75,17 @@ public class UsuarioController {
     // ============================================================
     @Operation(
             summary = "Actualizar perfil",
-            description = "Actualiza nombre, dirección y método de pago del usuario autenticado. El método de pago se ofusca antes de guardar."
+            description = "Actualiza nombre, dirección y método de pago de un usuario por su ID."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Perfil actualizado exitosamente"),
-            @ApiResponse(responseCode = "400", description = "Datos inválidos"),
-            @ApiResponse(responseCode = "401", description = "Token no válido")
+            @ApiResponse(responseCode = "400", description = "Datos inválidos")
     })
-    @SecurityRequirement(name = "bearerAuth")
-    @PutMapping("/usuarios/perfil")
+    @PutMapping("/usuarios/{id}/perfil")
     public ResponseEntity<PerfilResponseDTO> actualizarPerfil(
-            @RequestAttribute("userId") Long userId,
+            @PathVariable Long id,
             @Valid @RequestBody ActualizarPerfilDTO dto) {
-        return ResponseEntity.ok(usuarioService.actualizarPerfil(userId, dto));
+        return ResponseEntity.ok(usuarioService.actualizarPerfil(id, dto));
     }
 
     // ============================================================
@@ -99,17 +93,13 @@ public class UsuarioController {
     // ============================================================
     @Operation(
             summary = "Cerrar sesión",
-            description = "Invalida el token JWT actual agregándolo a la blacklist. Peticiones posteriores con este token serán rechazadas."
+            description = "Cierra la sesión del usuario."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Sesión cerrada exitosamente"),
-            @ApiResponse(responseCode = "401", description = "Token no válido")
+            @ApiResponse(responseCode = "200", description = "Sesión cerrada exitosamente")
     })
-    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/auth/logout")
-    public ResponseEntity<Void> cerrarSesion(@RequestHeader("Authorization") String authHeader) {
-        String token = authHeader.replace("Bearer ", "");
-        usuarioService.cerrarSesion(token);
+    public ResponseEntity<Void> cerrarSesion() {
         return ResponseEntity.ok().build();
     }
 
@@ -118,10 +108,10 @@ public class UsuarioController {
     // ============================================================
     @Operation(
             summary = "Recuperar contraseña",
-            description = "Solicita un token de recuperación de contraseña. Si el correo existe, genera un token con expiración de 15 minutos. Por seguridad, siempre retorna HTTP 200."
+            description = "Solicita un token de recuperación de contraseña. Si el correo existe, se envía un enlace de recuperación al correo registrado."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Solicitud procesada (el token se retorna en la respuesta para simulación)")
+            @ApiResponse(responseCode = "200", description = "Solicitud procesada (revisa tu correo electrónico)")
     })
     @PostMapping("/auth/recuperar")
     public ResponseEntity<String> recuperarPassword(@Valid @RequestBody CorreoRequestDTO dto) {
@@ -150,21 +140,16 @@ public class UsuarioController {
     // ============================================================
     @Operation(
             summary = "Listar usuarios",
-            description = "Lista paginada de todos los usuarios del sistema. Permite filtrar por rol y/o estado. Solo ADMIN."
+            description = "Lista todos los usuarios del sistema. Filtros opcionales por ?rol= y ?estado=."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Lista de usuarios retornada exitosamente"),
-            @ApiResponse(responseCode = "401", description = "Token no válido"),
-            @ApiResponse(responseCode = "403", description = "Acceso denegado (no es ADMIN)")
+            @ApiResponse(responseCode = "200", description = "Lista de usuarios retornada exitosamente")
     })
-    @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/usuarios")
-    public ResponseEntity<Page<PerfilResponseDTO>> listarUsuarios(
-            Pageable pageable,
+    public ResponseEntity<List<PerfilResponseDTO>> listarUsuarios(
             @RequestParam(required = false) String rol,
             @RequestParam(required = false) String estado) {
-        return ResponseEntity.ok(usuarioService.listarUsuarios(pageable, rol, estado));
+        return ResponseEntity.ok(usuarioService.listarUsuarios(rol, estado));
     }
 
     // ============================================================
@@ -172,15 +157,12 @@ public class UsuarioController {
     // ============================================================
     @Operation(
             summary = "Crear usuario",
-            description = "Crea un nuevo usuario en el sistema asignando rol y generando contraseña temporal. Solo ADMIN."
+            description = "Crea un nuevo usuario en el sistema asignando rol y generando contraseña temporal."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Usuario creado exitosamente"),
-            @ApiResponse(responseCode = "400", description = "Datos inválidos o correo duplicado"),
-            @ApiResponse(responseCode = "403", description = "Acceso denegado (no es ADMIN)")
+            @ApiResponse(responseCode = "400", description = "Datos inválidos o correo duplicado")
     })
-    @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/usuarios")
     public ResponseEntity<PerfilResponseDTO> crearUsuarioAdmin(@Valid @RequestBody CrearEmpleadoDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearUsuarioAdmin(dto));
@@ -191,15 +173,13 @@ public class UsuarioController {
     // ============================================================
     @Operation(
             summary = "Actualizar usuario",
-            description = "Modifica nombre, email y rol de un usuario. Previene que un ADMIN se quite su propio rol. Solo ADMIN."
+            description = "Modifica nombre, email y rol de un usuario. Previene que un ADMIN se quite su propio rol."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Usuario actualizado exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos inválidos o restricción de negocio"),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
-    @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/usuarios/{id}")
     public ResponseEntity<PerfilResponseDTO> actualizarUsuarioAdmin(
             @PathVariable Long id,
@@ -212,15 +192,13 @@ public class UsuarioController {
     // ============================================================
     @Operation(
             summary = "Desactivar usuario",
-            description = "Realiza un borrado lógico (cambia estado a INACTIVO). No se puede desactivar a un ADMIN. Solo ADMIN."
+            description = "Realiza un borrado lógico (cambia estado a INACTIVO). No se puede desactivar a un ADMIN."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Usuario desactivado exitosamente"),
             @ApiResponse(responseCode = "400", description = "No se puede desactivar ADMIN"),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
-    @SecurityRequirement(name = "bearerAuth")
-    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/usuarios/{id}")
     public ResponseEntity<Void> desactivarUsuario(@PathVariable Long id) {
         usuarioService.desactivarUsuario(id);

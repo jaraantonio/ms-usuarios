@@ -2,7 +2,7 @@
 
 ## Descripción
 
-Microservicio de gestión de identidades, autenticación JWT, roles y recuperación de contraseña para Perfulandia SPA.
+Microservicio de gestión de identidades, autenticación, roles y recuperación de contraseña para Perfulandia SPA. Gestiona el registro de clientes, inicio de sesión, perfiles de usuario y administración de empleados.
 
 - Historias de usuario: HU-01 a HU-09, HU-44 y HU-45.
 - Swagger/OpenAPI disponible en: http://localhost:8081/swagger-ui.html
@@ -30,7 +30,7 @@ Microservicio de gestión de identidades, autenticación JWT, roles y recuperaci
 
 ## Tecnologías
 
-- Java 25, Spring Boot 4.0.6, Spring Security, JWT (jjwt 0.12.5), JPA/Hibernate
+- Java 25, Spring Boot 4.0.6, JPA/Hibernate, WebClient (Spring WebFlux)
 - MySQL 8+ / MariaDB 10.4+ (XAMPP)
 - Maven, Swagger/OpenAPI (Springdoc)
 
@@ -48,31 +48,19 @@ Al iniciar la aplicación se insertan automáticamente 5 usuarios, uno por cada 
 
 ## Endpoints
 
-### Públicos (sin autenticación)
-
-| Método | Ruta                    | HU    | Descripción                              |
-|--------|-------------------------|-------|------------------------------------------|
-| POST   | `/api/auth/registro`    | HU-01 | Registrar cliente                        |
-| POST   | `/api/auth/login`       | HU-02 | Iniciar sesión → retorna JWT + rol       |
-| POST   | `/api/auth/recuperar`   | HU-44a| Solicitar token de recuperación          |
-| POST   | `/api/auth/restablecer` | HU-44b| Restablecer contraseña con token         |
-
-### Autenticados (requieren token Bearer)
-
-| Método | Ruta                    | HU    | Descripción                   |
-|--------|-------------------------|-------|-------------------------------|
-| GET    | `/api/usuarios/perfil`  | HU-03 | Ver perfil propio             |
-| PUT    | `/api/usuarios/perfil`  | HU-04 | Actualizar nombre, dirección y método de pago |
-| POST   | `/api/auth/logout`      | HU-45 | Cerrar sesión (invalida token) |
-
-### Administración (requieren token Bearer con rol ADMIN)
-
-| Método | Ruta                    | HU    | Descripción                        |
-|--------|-------------------------|-------|------------------------------------|
-| GET    | `/api/usuarios`         | HU-06 | Listar usuarios (paginado, filtros por `?rol=` y `?estado=`) |
-| POST   | `/api/usuarios`         | HU-05 | Crear empleado (contraseña temporal automática) |
-| PUT    | `/api/usuarios/{id}`    | HU-07 | Actualizar usuario (nombre, email, rol) |
-| DELETE | `/api/usuarios/{id}`    | HU-08 | Desactivar usuario (borrado lógico) |
+| Método | Ruta | HU | Descripción |
+|--------|------|----|-------------|
+| POST | `/api/auth/registro` | HU-01 | Registrar cliente |
+| POST | `/api/auth/login` | HU-02 | Iniciar sesión |
+| GET | `/api/usuarios/{id}/perfil` | HU-03 | Obtener perfil por ID de usuario |
+| PUT | `/api/usuarios/{id}/perfil` | HU-04 | Actualizar nombre, dirección y método de pago |
+| POST | `/api/auth/logout` | HU-45 | Cerrar sesión |
+| POST | `/api/auth/recuperar` | HU-44a | Solicitar token de recuperación |
+| POST | `/api/auth/restablecer` | HU-44b | Restablecer contraseña con token |
+| GET | `/api/usuarios` | HU-06 | Listar usuarios (paginado, filtros por `?rol=` y `?estado=`) |
+| POST | `/api/usuarios` | HU-05 | Crear empleado (contraseña temporal automática) |
+| PUT | `/api/usuarios/{id}` | HU-07 | Actualizar usuario (nombre, email, rol) |
+| DELETE | `/api/usuarios/{id}` | HU-08 | Desactivar usuario (borrado lógico) |
 
 ## Ejecución
 
@@ -133,7 +121,6 @@ Reporte en `target/surefire-reports/`.
 
 // Response: 200 OK
 {
-  "token": "eyJhbGciOiJIUzI1NiIs...",
   "rol": "ADMIN"
 }
 ```
@@ -143,17 +130,28 @@ Reporte en `target/surefire-reports/`.
 - Login exitoso resetea el contador de intentos fallidos
 - Credenciales incorrectas → 401 Unauthorized
 
-### GET /api/usuarios/perfil
+### GET /api/usuarios/{id}/perfil
 
 ```
-Header: Authorization: Bearer <token>
-Response: 200 OK → PerfilResponseDTO (misma estructura que registro)
+GET /api/usuarios/1/perfil
+
+Response: 200 OK
+{
+  "id": 1,
+  "nombre": "Admin",
+  "email": "admin@perfulandia.cl",
+  "rol": "ADMIN",
+  "estado": "ACTIVO",
+  "direccion": null,
+  "metodoPagoOfuscado": "****"
+}
 ```
 
-### PUT /api/usuarios/perfil
+### PUT /api/usuarios/{id}/perfil
 
 ```json
 // Request
+PUT /api/usuarios/1/perfil
 {
   "nombre": "Nuevo Nombre",
   "direccion": "Nueva Dirección 123",
@@ -192,7 +190,7 @@ Response: 200 OK → PerfilResponseDTO (misma estructura que registro)
 - Token expirado (15 min) → 400 Bad Request
 - Nueva contraseña debe cumplir con política de contraseñas
 
-### POST /api/usuarios (ADMIN) — Crear empleado
+### POST /api/usuarios — Crear empleado
 
 ```json
 // Request
@@ -208,18 +206,17 @@ Response: 200 OK → PerfilResponseDTO (misma estructura que registro)
 
 Rol puede ser: `ADMIN`, `CLIENTE`, `EMPLEADO`, `GERENTE`, `LOGISTICA`
 
-### GET /api/usuarios (ADMIN) — Listar usuarios
+### GET /api/usuarios — Listar usuarios
 
 ```
 GET /api/usuarios?page=0&size=10&rol=EMPLEADO&estado=ACTIVO
-Header: Authorization: Bearer <token_admin>
 
 Response: 200 OK → Page<PerfilResponseDTO>
 ```
 
 Parámetros opcionales: `rol`, `estado`, `page` (default 0), `size` (default 20)
 
-### PUT /api/usuarios/{id} (ADMIN) — Actualizar usuario
+### PUT /api/usuarios/{id} — Actualizar usuario
 
 ```json
 // Request
@@ -234,7 +231,7 @@ Parámetros opcionales: `rol`, `estado`, `page` (default 0), `size` (default 20)
 
 **Regla:** No se puede cambiar el rol de un usuario ADMIN a otro rol.
 
-### DELETE /api/usuarios/{id} (ADMIN) — Desactivar usuario
+### DELETE /api/usuarios/{id} — Desactivar usuario
 
 ```
 Response: 200 OK (borrado lógico: cambia estado a INACTIVO)
@@ -244,15 +241,6 @@ Response: 200 OK (borrado lógico: cambia estado a INACTIVO)
 - No se puede desactivar a un ADMIN
 - No se puede desactivar a un usuario que ya está INACTIVO (400 Bad Request)
 - El usuario desactivado no puede iniciar sesión
-
-### POST /api/auth/logout
-
-```
-Header: Authorization: Bearer <token>
-Response: 200 OK
-```
-
-El token se agrega a una blacklist y no puede usarse nuevamente.
 
 ## Configuración de base de datos
 

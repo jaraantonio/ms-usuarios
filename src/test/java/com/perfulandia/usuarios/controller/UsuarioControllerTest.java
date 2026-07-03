@@ -9,7 +9,6 @@ import com.perfulandia.usuarios.exception.RecursoNoEncontradoException;
 import com.perfulandia.usuarios.model.dto.*;
 import com.perfulandia.usuarios.model.enums.EstadoUsuario;
 import com.perfulandia.usuarios.model.enums.Rol;
-import com.perfulandia.usuarios.security.JwtAuthFilter;
 import com.perfulandia.usuarios.service.UsuarioService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,14 +16,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doNothing;
@@ -47,9 +44,6 @@ class UsuarioControllerTest {
 
     @MockitoBean
     private UsuarioService usuarioService;
-
-    @MockitoBean
-    private JwtAuthFilter jwtAuthFilter;
 
     // ==================================================================
     // POST /api/auth/registro
@@ -90,10 +84,10 @@ class UsuarioControllerTest {
     // POST /api/auth/login
     // ==================================================================
     @Test
-    @DisplayName("POST /api/auth/login debe retornar 200 con token")
-    void login_DebeRetornarToken() throws Exception {
+    @DisplayName("POST /api/auth/login debe retornar 200 con rol")
+    void login_DebeRetornarRol() throws Exception {
         LoginRequestDTO req = new LoginRequestDTO("juan@test.com", "Juan12345");
-        LoginResponseDTO res = new LoginResponseDTO("fake-jwt-token", "CLIENTE");
+        LoginResponseDTO res = new LoginResponseDTO("CLIENTE");
 
         when(usuarioService.autenticar(any(LoginRequestDTO.class))).thenReturn(res);
 
@@ -101,7 +95,6 @@ class UsuarioControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("fake-jwt-token"))
                 .andExpect(jsonPath("$.rol").value("CLIENTE"));
     }
 
@@ -128,10 +121,7 @@ class UsuarioControllerTest {
     @Test
     @DisplayName("POST /api/auth/logout debe retornar 200")
     void cerrarSesion_DebeRetornar200() throws Exception {
-        doNothing().when(usuarioService).cerrarSesion("fake-token");
-
-        mockMvc.perform(post("/api/auth/logout")
-                        .header("Authorization", "Bearer fake-token"))
+        mockMvc.perform(post("/api/auth/logout"))
                 .andExpect(status().isOk());
     }
 
@@ -186,39 +176,37 @@ class UsuarioControllerTest {
     // GET /api/usuarios/perfil
     // ==================================================================
     @Test
-    @DisplayName("GET /api/usuarios/perfil debe retornar 200")
+    @DisplayName("GET /api/usuarios/{id}/perfil debe retornar 200")
     void obtenerPerfil_DebeRetornar200() throws Exception {
         PerfilResponseDTO res = new PerfilResponseDTO(1L, "Juan", "juan@test.com",
                 Rol.CLIENTE, EstadoUsuario.ACTIVO, "Calle 123", "**** 1234");
 
         when(usuarioService.obtenerPerfil(1L)).thenReturn(res);
 
-        mockMvc.perform(get("/api/usuarios/perfil")
-                        .requestAttr("userId", 1L))
+        mockMvc.perform(get("/api/usuarios/1/perfil"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("juan@test.com"));
     }
 
     @Test
-    @DisplayName("GET /api/usuarios/perfil debe retornar 404 cuando usuario no existe")
+    @DisplayName("GET /api/usuarios/{id}/perfil debe retornar 404 cuando usuario no existe")
     void obtenerPerfil_DebeRetornar404() throws Exception {
         // Given
         when(usuarioService.obtenerPerfil(99L))
                 .thenThrow(new RecursoNoEncontradoException("Usuario no encontrado con ID: 99"));
 
         // When / Then
-        mockMvc.perform(get("/api/usuarios/perfil")
-                        .requestAttr("userId", 99L))
+        mockMvc.perform(get("/api/usuarios/99/perfil"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.error").value("No Encontrado"));
     }
 
     // ==================================================================
-    // PUT /api/usuarios/perfil
+    // PUT /api/usuarios/{id}/perfil
     // ==================================================================
     @Test
-    @DisplayName("PUT /api/usuarios/perfil debe retornar 200")
+    @DisplayName("PUT /api/usuarios/{id}/perfil debe retornar 200")
     void actualizarPerfil_DebeRetornar200() throws Exception {
         ActualizarPerfilDTO req = new ActualizarPerfilDTO("Nuevo Nombre", "Nueva Direccion", "1234567890123456");
         PerfilResponseDTO res = new PerfilResponseDTO(1L, "Nuevo Nombre", "juan@test.com",
@@ -226,8 +214,7 @@ class UsuarioControllerTest {
 
         when(usuarioService.actualizarPerfil(eq(1L), any(ActualizarPerfilDTO.class))).thenReturn(res);
 
-        mockMvc.perform(put("/api/usuarios/perfil")
-                        .requestAttr("userId", 1L)
+        mockMvc.perform(put("/api/usuarios/1/perfil")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
@@ -236,14 +223,13 @@ class UsuarioControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /api/usuarios/perfil debe retornar 400 cuando datos inválidos")
+    @DisplayName("PUT /api/usuarios/{id}/perfil debe retornar 400 cuando datos inválidos")
     void actualizarPerfil_DebeRetornar400_CuandoDatosInvalidos() throws Exception {
         // Given: nombre vacío (falla @NotBlank)
         String jsonInvalido = "{\"nombre\":\"\",\"direccion\":\"\"}";
 
         // When / Then
-        mockMvc.perform(put("/api/usuarios/perfil")
-                        .requestAttr("userId", 1L)
+        mockMvc.perform(put("/api/usuarios/1/perfil")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonInvalido))
                 .andExpect(status().isBadRequest())
@@ -255,10 +241,9 @@ class UsuarioControllerTest {
     // GET /api/usuarios (ADMIN)
     // ==================================================================
     @Test
-    @DisplayName("GET /api/usuarios (ADMIN) debe retornar 200 con página")
+    @DisplayName("GET /api/usuarios debe retornar 200 con lista")
     void listarUsuarios_DebeRetornar200() throws Exception {
-        Page<PerfilResponseDTO> page = new PageImpl<>(Collections.emptyList());
-        when(usuarioService.listarUsuarios(any(Pageable.class), isNull(), isNull())).thenReturn(page);
+        when(usuarioService.listarUsuarios(isNull(), isNull())).thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/api/usuarios"))
                 .andExpect(status().isOk());

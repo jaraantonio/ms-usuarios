@@ -9,7 +9,6 @@ import com.perfulandia.usuarios.model.entity.TokenRecuperacion;
 import com.perfulandia.usuarios.model.entity.Usuario;
 import com.perfulandia.usuarios.model.enums.EstadoUsuario;
 import com.perfulandia.usuarios.model.enums.Rol;
-import com.perfulandia.usuarios.repository.TokenInvalidadoRepository;
 import com.perfulandia.usuarios.repository.TokenRecuperacionRepository;
 import com.perfulandia.usuarios.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,10 +20,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
@@ -45,16 +40,10 @@ class UsuarioServiceTest {
     private UsuarioRepository usuarioRepository;
 
     @Mock
-    private TokenInvalidadoRepository tokenInvalidadoRepository;
-
-    @Mock
     private TokenRecuperacionRepository tokenRecuperacionRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
-
-    @Mock
-    private JwtService jwtService;
 
     @Mock
     private NotificacionesWebClient notificacionesWebClient;
@@ -138,20 +127,18 @@ class UsuarioServiceTest {
     class AutenticarTests {
 
         @Test
-        @DisplayName("Debe retornar token JWT en login exitoso")
+        @DisplayName("Debe retornar rol en login exitoso")
         void autenticar_Exito() {
             // Given
             LoginRequestDTO dto = new LoginRequestDTO("juan@test.com", "Juan12345");
             when(usuarioRepository.findByEmail(dto.email())).thenReturn(Optional.of(usuarioActivo));
             when(passwordEncoder.matches(dto.password(), usuarioActivo.getPassword())).thenReturn(true);
-            when(jwtService.generarToken(1L, "juan@test.com", "CLIENTE")).thenReturn("jwt-token");
 
             // When
             LoginResponseDTO result = usuarioService.autenticar(dto);
 
             // Then
             assertNotNull(result);
-            assertEquals("jwt-token", result.token());
             assertEquals("CLIENTE", result.rol());
             assertEquals(0, usuarioActivo.getIntentosFallidos());
             verify(usuarioRepository, times(1)).save(usuarioActivo);
@@ -308,7 +295,7 @@ class UsuarioServiceTest {
     class RecuperarPasswordTests {
 
         @Test
-        @DisplayName("Debe retornar mensaje aunque el correo no exista (no revela info)")
+        @DisplayName("Debe retornar mensaje genérico aunque el correo no exista (no revela info)")
         void recuperarPassword_CorreoNoExiste() {
             // Given
             when(usuarioRepository.findByEmail("noexiste@test.com")).thenReturn(Optional.empty());
@@ -316,15 +303,15 @@ class UsuarioServiceTest {
             // When
             String result = usuarioService.recuperarPassword("noexiste@test.com");
 
-            // Then — siempre retorna un UUID (no revela si el correo existe)
+            // Then — siempre retorna mensaje genérico (no revela si el correo existe)
             assertNotNull(result);
-            assertFalse(result.isBlank());
+            assertTrue(result.contains("correo"));
             verify(notificacionesWebClient, never()).enviarCorreo(any());
             verify(tokenRecuperacionRepository, never()).save(any(TokenRecuperacion.class));
         }
 
         @Test
-        @DisplayName("Debe generar token si el correo existe")
+        @DisplayName("Debe generar token y enviar correo si el email existe")
         void recuperarPassword_Exito() {
             // Given
             when(usuarioRepository.findByEmail("juan@test.com")).thenReturn(Optional.of(usuarioActivo));
@@ -332,10 +319,9 @@ class UsuarioServiceTest {
             // When
             String result = usuarioService.recuperarPassword("juan@test.com");
 
-            // Then
+            // Then — retorna mensaje genérico, el token se envía por correo
             assertNotNull(result);
-            assertFalse(result.isBlank());
-            assertTrue(result.length() > 20); // UUID length
+            assertTrue(result.contains("correo"));
             verify(tokenRecuperacionRepository, times(1)).save(any(TokenRecuperacion.class));
             verify(notificacionesWebClient, times(1)).enviarCorreo(any(CorreoRequestDTO.class));
         }
@@ -415,28 +401,6 @@ class UsuarioServiceTest {
     }
 
     // ==================================================================
-    // HU-45: Cerrar Sesión
-    // ==================================================================
-    @Nested
-    @DisplayName("cerrarSesion")
-    class CerrarSesionTests {
-
-        @Test
-        @DisplayName("Debe invalidar el token exitosamente")
-        void cerrarSesion_Exito() {
-            // Given / When
-            assertDoesNotThrow(() -> usuarioService.cerrarSesion("token-a-invalidar"));
-
-            // Then
-            ArgumentCaptor<com.perfulandia.usuarios.model.entity.TokenInvalidado> captor =
-                    ArgumentCaptor.forClass(com.perfulandia.usuarios.model.entity.TokenInvalidado.class);
-            verify(tokenInvalidadoRepository, times(1)).save(captor.capture());
-            assertEquals("token-a-invalidar", captor.getValue().getToken());
-            assertNotNull(captor.getValue().getFechaInvalidacion());
-        }
-    }
-
-    // ==================================================================
     // HU-05: Crear Usuario Admin
     // ==================================================================
     @Nested
@@ -492,89 +456,75 @@ class UsuarioServiceTest {
         @DisplayName("Debe listar todos los usuarios sin filtros")
         void listarUsuarios_SinFiltros() {
             // Given
-            Pageable pageable = PageRequest.of(0, 10);
-            Page<Usuario> page = new PageImpl<>(List.of(usuarioActivo, usuarioInactivo));
-            when(usuarioRepository.findAll(pageable)).thenReturn(page);
+            when(usuarioRepository.findAll()).thenReturn(List.of(usuarioActivo, usuarioInactivo));
 
             // When
-            Page<PerfilResponseDTO> result = usuarioService.listarUsuarios(pageable, null, null);
+            List<PerfilResponseDTO> result = usuarioService.listarUsuarios(null, null);
 
             // Then
             assertNotNull(result);
-            assertEquals(2, result.getTotalElements());
-            verify(usuarioRepository, times(1)).findAll(pageable);
+            assertEquals(2, result.size());
+            verify(usuarioRepository, times(1)).findAll();
         }
 
         @Test
         @DisplayName("Debe filtrar por rol correctamente")
         void listarUsuarios_PorRol() {
             // Given
-            Pageable pageable = PageRequest.of(0, 10);
-            Page<Usuario> page = new PageImpl<>(List.of(usuarioActivo));
-            when(usuarioRepository.findByRol(Rol.CLIENTE, pageable)).thenReturn(page);
+            when(usuarioRepository.findByRol(Rol.CLIENTE)).thenReturn(List.of(usuarioActivo));
 
             // When
-            Page<PerfilResponseDTO> result = usuarioService.listarUsuarios(pageable, "CLIENTE", null);
+            List<PerfilResponseDTO> result = usuarioService.listarUsuarios("CLIENTE", null);
 
             // Then
-            assertEquals(1, result.getTotalElements());
-            verify(usuarioRepository, times(1)).findByRol(Rol.CLIENTE, pageable);
+            assertEquals(1, result.size());
+            verify(usuarioRepository, times(1)).findByRol(Rol.CLIENTE);
         }
 
         @Test
         @DisplayName("Debe filtrar por estado correctamente")
         void listarUsuarios_PorEstado() {
             // Given
-            Pageable pageable = PageRequest.of(0, 10);
-            Page<Usuario> page = new PageImpl<>(List.of(usuarioActivo));
-            when(usuarioRepository.findByEstado(EstadoUsuario.ACTIVO, pageable)).thenReturn(page);
+            when(usuarioRepository.findByEstado(EstadoUsuario.ACTIVO)).thenReturn(List.of(usuarioActivo));
 
             // When
-            Page<PerfilResponseDTO> result = usuarioService.listarUsuarios(pageable, null, "ACTIVO");
+            List<PerfilResponseDTO> result = usuarioService.listarUsuarios(null, "ACTIVO");
 
             // Then
-            assertEquals(1, result.getTotalElements());
-            verify(usuarioRepository, times(1)).findByEstado(EstadoUsuario.ACTIVO, pageable);
+            assertEquals(1, result.size());
+            verify(usuarioRepository, times(1)).findByEstado(EstadoUsuario.ACTIVO);
         }
 
         @Test
         @DisplayName("Debe filtrar por rol y estado combinados")
         void listarUsuarios_PorRolYEstado() {
             // Given
-            Pageable pageable = PageRequest.of(0, 10);
-            Page<Usuario> page = new PageImpl<>(List.of(usuarioActivo));
-            when(usuarioRepository.findByRolAndEstado(Rol.CLIENTE, EstadoUsuario.ACTIVO, pageable))
-                    .thenReturn(page);
+            when(usuarioRepository.findByRolAndEstado(Rol.CLIENTE, EstadoUsuario.ACTIVO))
+                    .thenReturn(List.of(usuarioActivo));
 
             // When
-            Page<PerfilResponseDTO> result = usuarioService.listarUsuarios(pageable, "CLIENTE", "ACTIVO");
+            List<PerfilResponseDTO> result = usuarioService.listarUsuarios("CLIENTE", "ACTIVO");
 
             // Then
-            assertEquals(1, result.getTotalElements());
-            verify(usuarioRepository, times(1)).findByRolAndEstado(Rol.CLIENTE, EstadoUsuario.ACTIVO, pageable);
+            assertEquals(1, result.size());
+            verify(usuarioRepository, times(1)).findByRolAndEstado(Rol.CLIENTE, EstadoUsuario.ACTIVO);
         }
 
         @Test
-        @DisplayName("Debe retornar página vacía si el valor del rol es inválido")
+        @DisplayName("Debe retornar lista vacía si el valor del rol es inválido")
         void listarUsuarios_RolInvalido() {
-            // Given
-            Pageable pageable = PageRequest.of(0, 10);
-
             // When
-            Page<PerfilResponseDTO> result = usuarioService.listarUsuarios(pageable, "ROL_INEXISTENTE", null);
+            List<PerfilResponseDTO> result = usuarioService.listarUsuarios("ROL_INEXISTENTE", null);
 
             // Then
             assertTrue(result.isEmpty());
         }
 
         @Test
-        @DisplayName("Debe retornar página vacía si el valor del estado es inválido")
+        @DisplayName("Debe retornar lista vacía si el valor del estado es inválido")
         void listarUsuarios_EstadoInvalido() {
-            // Given
-            Pageable pageable = PageRequest.of(0, 10);
-
             // When
-            Page<PerfilResponseDTO> result = usuarioService.listarUsuarios(pageable, null, "ESTADO_INEXISTENTE");
+            List<PerfilResponseDTO> result = usuarioService.listarUsuarios(null, "ESTADO_INEXISTENTE");
 
             // Then
             assertTrue(result.isEmpty());

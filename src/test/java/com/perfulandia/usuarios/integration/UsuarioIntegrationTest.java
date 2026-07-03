@@ -59,9 +59,8 @@ class UsuarioIntegrationTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson))
-                // Then: HTTP 200 con token
+                // Then: HTTP 200 con rol
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").exists())
                 .andExpect(jsonPath("$.rol").value("CLIENTE"));
     }
 
