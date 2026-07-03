@@ -26,8 +26,7 @@ public class NotificacionesWebClient {
                 "asunto", "Recuperación de Contraseña — Perfulandia SPA",
                 "variables", Map.of(
                         "nombre", "Usuario",
-                        "tokenRecuperacion", token,
-                        "enlaceRestablecimiento", "https://perfulandia.cl/restablecer?token=" + token
+                        "tokenRecuperacion", token
                 )
         );
 
