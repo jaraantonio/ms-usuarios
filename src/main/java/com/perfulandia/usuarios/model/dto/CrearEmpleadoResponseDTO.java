@@ -3,13 +3,17 @@ package com.perfulandia.usuarios.model.dto;
 import com.perfulandia.usuarios.model.enums.EstadoUsuario;
 import com.perfulandia.usuarios.model.enums.Rol;
 
-public record PerfilResponseDTO(
+/**
+ * DTO para la respuesta de creación de empleado.
+ * Incluye la contraseña temporal generada (solo se entrega una vez).
+ */
+public record CrearEmpleadoResponseDTO(
         Long id,
         String nombre,
         String email,
-        String telefono,
         Rol rol,
         EstadoUsuario estado,
         String direccion,
-        String metodoPagoOfuscado) {
+        String metodoPagoOfuscado,
+        String contrasenaTemporal) {
 }

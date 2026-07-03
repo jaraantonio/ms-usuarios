@@ -54,6 +54,7 @@ Al iniciar la aplicación se insertan automáticamente 5 usuarios, uno por cada 
 | POST | `/api/auth/login` | HU-02 | Iniciar sesión |
 | GET | `/api/usuarios/{id}/perfil` | HU-03 | Obtener perfil por ID de usuario |
 | PUT | `/api/usuarios/{id}/perfil` | HU-04 | Actualizar nombre, dirección y método de pago |
+| PUT | `/api/usuarios/{id}/password` | HU-CP | Cambiar contraseña (usuario autenticado) |
 | POST | `/api/auth/logout` | HU-45 | Cerrar sesión |
 | POST | `/api/auth/recuperar` | HU-44a | Solicitar recuperación de contraseña (registra notificación con token) |
 | POST | `/api/auth/restablecer` | HU-44b | Restablecer contraseña con token |
@@ -61,6 +62,7 @@ Al iniciar la aplicación se insertan automáticamente 5 usuarios, uno por cada 
 | POST | `/api/usuarios` | HU-05 | Crear empleado (contraseña temporal automática) |
 | PUT | `/api/usuarios/{id}` | HU-07 | Actualizar usuario (nombre, email, rol) |
 | DELETE | `/api/usuarios/{id}` | HU-08 | Desactivar usuario (borrado lógico) |
+| PUT | `/api/usuarios/{id}/desbloquear` | HU-02 | Desbloquear cuenta bloqueada (solo ADMIN) |
 | GET | `/api/usuarios/permisos` | HU-09 | Listar todos los permisos disponibles |
 | GET | `/api/usuarios/roles/{rol}/permisos` | HU-09 | Obtener permisos asignados a un rol |
 | PUT | `/api/usuarios/roles/{rol}/permisos` | HU-09 | Asignar permisos a un rol |
@@ -104,7 +106,8 @@ Reporte en `target/surefire-reports/`.
   "nombre": "Andrea Vega",
   "email": "andrea.vega@gmail.com",
   "password": "AndreaV123",
-  "direccion": "Av. Las Condes 456, Santiago"
+  "direccion": "Av. Las Condes 456, Santiago",
+  "telefono": "+56912345678"
 }
 
 // Response: 201 Created
@@ -112,10 +115,11 @@ Reporte en `target/surefire-reports/`.
   "id": 1,
   "nombre": "Andrea Vega",
   "email": "andrea.vega@gmail.com",
+  "telefono": "+56912345678",
   "rol": "CLIENTE",
   "estado": "ACTIVO",
   "direccion": "Av. Las Condes 456, Santiago",
-  "metodoPagoOfuscado": "****"
+  "metodoPagoOfuscado": null
 }
 ```
 
@@ -123,6 +127,7 @@ Reporte en `target/surefire-reports/`.
 - Email único (409 Conflict si duplicado)
 - Password: mínimo 8 caracteres, debe incluir mayúscula, minúscula y número (400 Bad Request si no cumple)
 - Todos los campos obligatorios: nombre, email, password, dirección
+- Teléfono opcional, pero si se entrega debe tener formato +569XXXXXXXX (400 Bad Request si no cumple)
 
 ### POST /api/auth/login
 
@@ -154,10 +159,11 @@ Response: 200 OK
   "id": 1,
   "nombre": "Admin",
   "email": "admin@perfulandia.cl",
+  "telefono": null,
   "rol": "ADMIN",
   "estado": "ACTIVO",
   "direccion": null,
-  "metodoPagoOfuscado": "****"
+  "metodoPagoOfuscado": null
 }
 ```
 
@@ -175,6 +181,23 @@ PUT /api/usuarios/1/perfil
 // Response: 200 OK → PerfilResponseDTO
 // El método de pago se ofusca: "**** **** **** 4444"
 ```
+
+### PUT /api/usuarios/{id}/password — Cambiar contraseña (HU-CP)
+
+```json
+// Request
+PUT /api/usuarios/1/password
+{
+  "passwordActual": "Pass1234",
+  "nuevaPassword": "NuevaClave1"
+}
+
+// Response: 200 OK
+```
+
+**Validaciones:**
+- Contraseña actual incorrecta → 401 Unauthorized
+- Nueva contraseña debe cumplir con la política de contraseñas (mínimo 8 caracteres, mayúscula, minúscula y número)
 
 ### POST /api/auth/recuperar (HU-44a)
 
@@ -204,7 +227,7 @@ PUT /api/usuarios/1/perfil
 ```
 
 **Validaciones:**
-- Token inválido → 404 Not Found
+- Token inválido → 400 Bad Request
 - Token ya usado → 400 Bad Request
 - Token expirado (15 min) → 400 Bad Request
 - Nueva contraseña debe cumplir con política de contraseñas
@@ -216,11 +239,22 @@ PUT /api/usuarios/1/perfil
 {
   "nombre": "Pedro Lopez",
   "email": "pedro.lopez@perfulandia.cl",
-  "rol": "EMPLEADO"
+  "rol": "EMPLEADO",
+  "idSucursalAsignada": 2
 }
 
-// Response: 201 Created → PerfilResponseDTO
-// El backend genera una contraseña temporal automáticamente
+// Response: 201 Created → CrearEmpleadoResponseDTO
+// El backend genera una contraseña temporal y la devuelve en la respuesta (solo se ve una vez)
+{
+  "id": 106,
+  "nombre": "Pedro Lopez",
+  "email": "pedro.lopez@perfulandia.cl",
+  "rol": "EMPLEADO",
+  "estado": "ACTIVO",
+  "direccion": null,
+  "metodoPagoOfuscado": null,
+  "contrasenaTemporal": "a1b2c3d4-e5f6"
+}
 ```
 
 Rol puede ser: `ADMIN`, `CLIENTE`, `EMPLEADO`, `GERENTE`, `LOGISTICA`
@@ -260,6 +294,19 @@ Response: 200 OK (borrado lógico: cambia estado a INACTIVO)
 - No se puede desactivar a un ADMIN
 - No se puede desactivar a un usuario que ya está INACTIVO (400 Bad Request)
 - El usuario desactivado no puede iniciar sesión
+
+### PUT /api/usuarios/{id}/desbloquear — Desbloquear usuario (HU-02)
+
+```
+PUT /api/usuarios/1/desbloquear
+
+Response: 200 OK (cambia estado a ACTIVO, resetea intentos fallidos a 0)
+```
+
+**Reglas:**
+- Solo funciona si el usuario está INACTIVO (bloqueado por intentos fallidos)
+- Usuario no bloqueado → 400 Bad Request
+- Usuario inexistente → 404 Not Found
 
 ## Configuración de base de datos
 

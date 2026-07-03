@@ -421,14 +421,16 @@ class UsuarioServiceTest {
             });
 
             // When
-            PerfilResponseDTO result = usuarioService.crearUsuarioAdmin(dto);
+            CrearEmpleadoResponseDTO result = usuarioService.crearUsuarioAdmin(dto);
 
             // Then
             assertNotNull(result);
             assertEquals("empleado@test.com", result.email());
             assertEquals(Rol.EMPLEADO, result.rol());
             assertEquals(EstadoUsuario.ACTIVO, result.estado());
-            assertEquals("****", result.metodoPagoOfuscado());
+            assertNull(result.metodoPagoOfuscado());
+            assertNotNull(result.contrasenaTemporal());
+            assertFalse(result.contrasenaTemporal().isEmpty());
             verify(usuarioRepository, times(1)).save(any(Usuario.class));
         }
 

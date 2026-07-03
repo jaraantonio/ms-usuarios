@@ -14,14 +14,14 @@ import com.perfulandia.usuarios.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -47,12 +47,13 @@ public class UsuarioService {
         Usuario usuario = new Usuario();
         usuario.setNombre(dto.nombre());
         usuario.setEmail(dto.email());
+        usuario.setTelefono(dto.telefono());
         usuario.setPassword(passwordEncoder.encode(dto.password()));
         usuario.setRol(Rol.CLIENTE);
         usuario.setEstado(EstadoUsuario.ACTIVO);
         usuario.setDireccion(dto.direccion());
-        usuario.setTelefono(dto.telefono());
-        usuario.setMetodoPagoOfuscado("****");
+        // HU-01: Solo ofuscar si hay método de pago; null si no se proporcionó
+        usuario.setMetodoPagoOfuscado(null);
 
         Usuario guardado = usuarioRepository.save(usuario);
         log.info("Cliente registrado con ID: {}", guardado.getId());
@@ -60,7 +61,7 @@ public class UsuarioService {
     }
 
     // ============================================================
-    // HU-02: Login
+    // HU-02: Login con bloqueo tras 3 intentos
     // ============================================================
     @Transactional(noRollbackFor = CredencialesInvalidasException.class)
     public LoginResponseDTO autenticar(LoginRequestDTO dto) {
@@ -126,6 +127,24 @@ public class UsuarioService {
     }
 
     // ============================================================
+    // HU-CP: Cambiar contraseña (usuario autenticado)
+    // ============================================================
+    @Transactional
+    public void cambiarPassword(Long id, CambiarPasswordRequestDTO dto) {
+        log.info("Cambiando contraseña para usuario ID: {}", id);
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
+
+        if (!passwordEncoder.matches(dto.passwordActual(), usuario.getPassword())) {
+            throw new CredencialesInvalidasException("La contraseña actual no es correcta");
+        }
+
+        usuario.setPassword(passwordEncoder.encode(dto.nuevaPassword()));
+        usuarioRepository.save(usuario);
+        log.info("Contraseña cambiada exitosamente para ID: {}", id);
+    }
+
+    // ============================================================
     // HU-44a: Recuperar contraseña
     // ============================================================
     @Transactional
@@ -143,7 +162,6 @@ public class UsuarioService {
             tokenRecuperacionRepository.save(tr);
             log.info("Token de recuperación generado para: {}", email);
 
-            // Registrar la notificación con el token (visible en logs de notificaciones)
             try {
                 notificacionesWebClient.enviarNotificacion(new CorreoRequestDTO(email), token);
                 log.info("Notificación de recuperación registrada para: {}", email);
@@ -151,24 +169,21 @@ public class UsuarioService {
                 log.error("No se pudo registrar la notificación de recuperación para {}: {}", email, e.getMessage());
             }
 
-            // Por seguridad, no devolvemos el token en la respuesta.
-            // El usuario debe revisar su correo electrónico.
             return "Si el correo está registrado, recibirás un enlace de recuperación.";
         }
 
-        // No revela si el correo existe o no (mismo mensaje)
         return "Si el correo está registrado, recibirás un enlace de recuperación.";
     }
 
     // ============================================================
-    // HU-44b: Restablecer contraseña
+    // HU-44b: Restablecer contraseña (con token)
     // ============================================================
     @Transactional
     public void restablecerPassword(RestablecerPasswordRequestDTO dto) {
         log.info("Restableciendo contraseña con token");
 
         TokenRecuperacion tr = tokenRecuperacionRepository.findByToken(dto.token())
-                .orElseThrow(() -> new RecursoNoEncontradoException("Token inválido o no encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("Token inválido o expirado"));
 
         if (tr.isUsado()) {
             throw new IllegalArgumentException("El token ya ha sido utilizado");
@@ -216,10 +231,10 @@ public class UsuarioService {
     }
 
     // ============================================================
-    // HU-05: Crear usuario (ADMIN)
+    // HU-05: Crear usuario (ADMIN) - devuelve contraseña temporal
     // ============================================================
     @Transactional
-    public PerfilResponseDTO crearUsuarioAdmin(CrearEmpleadoDTO dto) {
+    public CrearEmpleadoResponseDTO crearUsuarioAdmin(CrearEmpleadoDTO dto) {
         log.info("Administrador creando usuario con email: {}", dto.email());
 
         if (usuarioRepository.findByEmail(dto.email()).isPresent()) {
@@ -234,12 +249,22 @@ public class UsuarioService {
         usuario.setPassword(passwordEncoder.encode(passwordTemporal));
         usuario.setRol(dto.rol());
         usuario.setEstado(EstadoUsuario.ACTIVO);
-        usuario.setMetodoPagoOfuscado("****");
+        usuario.setMetodoPagoOfuscado(null);
         usuario.setIdSucursalAsignada(dto.idSucursalAsignada());
 
         Usuario guardado = usuarioRepository.save(usuario);
-        log.info("Usuario creado con ID: {} (contraseña temporal generada)", guardado.getId());
-        return toPerfilResponse(guardado);
+        log.info("Usuario creado con ID: {} (contraseña temporal: {})", guardado.getId(), passwordTemporal);
+
+        return new CrearEmpleadoResponseDTO(
+                guardado.getId(),
+                guardado.getNombre(),
+                guardado.getEmail(),
+                guardado.getRol(),
+                guardado.getEstado(),
+                guardado.getDireccion(),
+                guardado.getMetodoPagoOfuscado(),
+                passwordTemporal
+        );
     }
 
     // ============================================================
@@ -252,7 +277,6 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
 
-        // Prevenir que un admin se quite su propio rol de admin
         if (usuario.getRol() == Rol.ADMIN && dto.rol() != Rol.ADMIN) {
             throw new IllegalArgumentException("No se puede cambiar el rol de un ADMIN a otro rol");
         }
@@ -290,13 +314,33 @@ public class UsuarioService {
     }
 
     // ============================================================
-    // Método auxiliar: mapear Usuario a PerfilResponseDTO
+    // HU-02 complemento: Desbloquear usuario (ADMIN)
     // ============================================================
+    @Transactional
+    public void desbloquearUsuario(Long id) {
+        log.info("Administrador desbloqueando usuario ID: {}", id);
+
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado con ID: " + id));
+
+        if (usuario.getEstado() != EstadoUsuario.INACTIVO) {
+            throw new IllegalArgumentException("El usuario no se encuentra bloqueado");
+        }
+
+        usuario.setEstado(EstadoUsuario.ACTIVO);
+        usuario.setIntentosFallidos(0);
+        usuarioRepository.save(usuario);
+        log.info("Usuario desbloqueado exitosamente ID: {}", id);
+    }
+
+    // ─── Método auxiliar ───
+
     private PerfilResponseDTO toPerfilResponse(Usuario usuario) {
         return new PerfilResponseDTO(
                 usuario.getId(),
                 usuario.getNombre(),
                 usuario.getEmail(),
+                usuario.getTelefono(),
                 usuario.getRol(),
                 usuario.getEstado(),
                 usuario.getDireccion(),

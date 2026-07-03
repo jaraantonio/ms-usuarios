@@ -89,6 +89,25 @@ public class UsuarioController {
     }
 
     // ============================================================
+    // HU-CP: Cambiar contraseña
+    // ============================================================
+    @Operation(
+            summary = "Cambiar contraseña",
+            description = "Permite al usuario cambiar su contraseña proporcionando la actual y una nueva."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Contraseña cambiada exitosamente"),
+            @ApiResponse(responseCode = "401", description = "La contraseña actual no es correcta")
+    })
+    @PutMapping("/usuarios/{id}/password")
+    public ResponseEntity<Void> cambiarPassword(
+            @PathVariable Long id,
+            @Valid @RequestBody CambiarPasswordRequestDTO dto) {
+        usuarioService.cambiarPassword(id, dto);
+        return ResponseEntity.ok().build();
+    }
+
+    // ============================================================
     // HU-45: Cerrar sesión
     // ============================================================
     @Operation(
@@ -153,18 +172,18 @@ public class UsuarioController {
     }
 
     // ============================================================
-    // HU-05: Crear usuario (ADMIN)
+    // HU-05: Crear usuario (ADMIN) — devuelve contraseña temporal
     // ============================================================
     @Operation(
             summary = "Crear usuario",
-            description = "Crea un nuevo usuario en el sistema asignando rol y generando contraseña temporal."
+            description = "Crea un nuevo usuario en el sistema asignando rol y generando contraseña temporal. La contraseña se devuelve en la respuesta."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Usuario creado exitosamente"),
+            @ApiResponse(responseCode = "201", description = "Usuario creado exitosamente. Incluye contraseña temporal."),
             @ApiResponse(responseCode = "400", description = "Datos inválidos o correo duplicado")
     })
     @PostMapping("/usuarios")
-    public ResponseEntity<PerfilResponseDTO> crearUsuarioAdmin(@Valid @RequestBody CrearEmpleadoDTO dto) {
+    public ResponseEntity<CrearEmpleadoResponseDTO> crearUsuarioAdmin(@Valid @RequestBody CrearEmpleadoDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearUsuarioAdmin(dto));
     }
 
@@ -202,6 +221,24 @@ public class UsuarioController {
     @DeleteMapping("/usuarios/{id}")
     public ResponseEntity<Void> desactivarUsuario(@PathVariable Long id) {
         usuarioService.desactivarUsuario(id);
+        return ResponseEntity.ok().build();
+    }
+
+    // ============================================================
+    // HU-02 complemento: Desbloquear usuario (ADMIN)
+    // ============================================================
+    @Operation(
+            summary = "Desbloquear usuario",
+            description = "Reactivar una cuenta bloqueada por intentos fallidos. Solo ADMIN."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usuario desbloqueado exitosamente"),
+            @ApiResponse(responseCode = "400", description = "El usuario no está bloqueado"),
+            @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
+    })
+    @PutMapping("/usuarios/{id}/desbloquear")
+    public ResponseEntity<Void> desbloquearUsuario(@PathVariable Long id) {
+        usuarioService.desbloquearUsuario(id);
         return ResponseEntity.ok().build();
     }
 }
