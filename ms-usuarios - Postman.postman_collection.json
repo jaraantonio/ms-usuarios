@@ -1,0 +1,311 @@
+{
+  "info": {
+    "name": "ms-usuarios — Autenticación y Usuarios",
+    "description": "## Colección de pruebas para ms-usuarios (:8081)\n\n**Estudiante:** Antonio Jara\n\nCubre los 16 endpoints del microservicio: autenticación (login, registro, recuperación), CRUD de usuarios (admin), perfiles, roles y permisos.\n\n### 📌 Importante:\n- Puerto directo: **8081** | Gateway: **8000**\n- Sesión vía cookies JSESSIONID (Postman maneja automáticamente)\n- Usuarios precargados (data.sql): admin@perfulandia.cl / Pass1234\n- Ejecutar en orden: las variables se propagan entre requests",
+    "schema": "https://go.getpostman.com/schemas/json/collection-v2.1.0.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000", "type": "string" },
+    { "key": "idCliente", "value": "", "type": "string" },
+    { "key": "idEmpleado", "value": "", "type": "string" },
+    { "key": "emailCliente", "value": "", "type": "string" },
+    { "key": "passwordCliente", "value": "AndreaV123", "type": "string" },
+    { "key": "tokenRecuperacion", "value": "", "type": "string" },
+    { "key": "emailRecuperar", "value": "", "type": "string" },
+    { "key": "passwordTemporal", "value": "", "type": "string" },
+    { "key": "adminRol", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01 🔐 Autenticación",
+      "item": [
+        {
+          "name": "01.01 POST Registrar Cliente",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "var j = pm.response.json();",
+              "pm.collectionVariables.set(\"idCliente\", (j.id || \"\").toString());",
+              "pm.collectionVariables.set(\"emailCliente\", j.email || \"\");"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Andrea Vega\",\n  \"email\": \"andrea.vega@email.com\",\n  \"password\": \"AndreaV123\",\n  \"direccion\": \"Av. Las Condes 456, Santiago\",\n  \"telefono\": \"+56912345678\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/registro", "host": ["{{baseUrl}}"], "path": ["api", "auth", "registro"] }
+          },
+          "response": []
+        },
+        {
+          "name": "01.02 POST Login Cliente",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "var j = pm.response.json();",
+              "pm.collectionVariables.set(\"adminRol\", j.rol || \"\");"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{emailCliente}}\",\n  \"password\": \"{{passwordCliente}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          },
+          "response": []
+        },
+        {
+          "name": "01.03 POST Login Admin",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "var j = pm.response.json();",
+              "pm.collectionVariables.set(\"adminRol\", j.rol || \"\");"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@perfulandia.cl\",\n  \"password\": \"Pass1234\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          },
+          "response": []
+        },
+        {
+          "name": "01.04 POST Solicitar Recuperación",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set(\"emailRecuperar\", pm.iterationData.get(\"emailCliente\") || pm.collectionVariables.get(\"emailCliente\"));"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"correo\": \"{{emailCliente}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/recuperar", "host": ["{{baseUrl}}"], "path": ["api", "auth", "recuperar"] }
+          },
+          "response": []
+        },
+        {
+          "name": "01.05 POST Restablecer Contraseña",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{tokenRecuperacion}}\",\n  \"nuevaContrasena\": \"NuevaClave1\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/restablecer", "host": ["{{baseUrl}}"], "path": ["api", "auth", "restablecer"] }
+          },
+          "response": []
+        },
+        {
+          "name": "01.06 POST Cerrar Sesión",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 👤 Perfiles y Contraseña",
+      "item": [
+        {
+          "name": "02.01 GET Perfil por ID",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Tiene datos del usuario\", () => pm.expect(pm.response.json()).to.have.property(\"id\"));"
+            ], "type": "text/javascript" }
+          }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/usuarios/{{idCliente}}/perfil", "host": ["{{baseUrl}}"], "path": ["api", "usuarios", "{{idCliente}}", "perfil"] } },
+          "response": []
+        },
+        {
+          "name": "02.02 PUT Actualizar Perfil",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Andrea Vega Actualizada\",\n  \"direccion\": \"Nueva Direccion 789, Santiago\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/usuarios/{{idCliente}}/perfil", "host": ["{{baseUrl}}"], "path": ["api", "usuarios", "{{idCliente}}", "perfil"] }
+          },
+          "response": []
+        },
+        {
+          "name": "02.03 PUT Cambiar Contraseña",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"passwordActual\": \"AndreaV123\",\n  \"nuevaPassword\": \"NuevaClave1\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/usuarios/{{idCliente}}/password", "host": ["{{baseUrl}}"], "path": ["api", "usuarios", "{{idCliente}}", "password"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 👥 Administración de Usuarios (Admin)",
+      "item": [
+        {
+          "name": "03.01 POST Crear Empleado (Admin)",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+              "var j = pm.response.json();",
+              "pm.collectionVariables.set(\"idEmpleado\", (j.id || \"\").toString());",
+              "if (j.contrasenaTemporal) pm.collectionVariables.set(\"passwordTemporal\", j.contrasenaTemporal);"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Carlos Munoz\",\n  \"email\": \"carlos.munoz@perfulandia.cl\",\n  \"rol\": \"LOGISTICA\",\n  \"idSucursalAsignada\": 1\n}" },
+            "url": { "raw": "{{baseUrl}}/api/usuarios", "host": ["{{baseUrl}}"], "path": ["api", "usuarios"] }
+          },
+          "response": []
+        },
+        {
+          "name": "03.02 GET Listar Usuarios",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ], "type": "text/javascript" }
+          }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/usuarios", "host": ["{{baseUrl}}"], "path": ["api", "usuarios"] } },
+          "response": []
+        },
+        {
+          "name": "03.03 GET Listar Usuarios (filtros)",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ], "type": "text/javascript" }
+          }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/usuarios?rol=EMPLEADO&estado=ACTIVO", "host": ["{{baseUrl}}"], "path": ["api", "usuarios"], "query": [{ "key": "rol", "value": "EMPLEADO" }, { "key": "estado", "value": "ACTIVO" }] } },
+          "response": []
+        },
+        {
+          "name": "03.04 PUT Actualizar Usuario (Admin)",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Carlos Munoz Silva\",\n  \"email\": \"carlos.munoz@perfulandia.cl\",\n  \"rol\": \"LOGISTICA\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/usuarios/{{idEmpleado}}", "host": ["{{baseUrl}}"], "path": ["api", "usuarios", "{{idEmpleado}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "03.05 DELETE Desactivar Usuario",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ], "type": "text/javascript" }
+          }],
+          "request": { "method": "DELETE", "header": [], "url": { "raw": "{{baseUrl}}/api/usuarios/{{idEmpleado}}", "host": ["{{baseUrl}}"], "path": ["api", "usuarios", "{{idEmpleado}}"] } },
+          "response": []
+        },
+        {
+          "name": "03.06 PUT Desbloquear Usuario",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{baseUrl}}/api/usuarios/{{idEmpelado}}/desbloquear", "host": ["{{baseUrl}}"], "path": ["api", "usuarios", "{{idEmpleado}}", "desbloquear"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 🛡️ Roles y Permisos",
+      "item": [
+        {
+          "name": "04.01 GET Listar Permisos",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Lista de permisos\", () => pm.expect(pm.response.json().length).to.be.at.least(12));"
+            ], "type": "text/javascript" }
+          }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/usuarios/permisos", "host": ["{{baseUrl}}"], "path": ["api", "usuarios", "permisos"] } },
+          "response": []
+        },
+        {
+          "name": "04.02 GET Permisos por Rol",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ], "type": "text/javascript" }
+          }],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/usuarios/roles/GERENTE/permisos", "host": ["{{baseUrl}}"], "path": ["api", "usuarios", "roles", "GERENTE", "permisos"] } },
+          "response": []
+        },
+        {
+          "name": "04.03 PUT Asignar Permisos a Rol",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ], "type": "text/javascript" }
+          }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"permisoIds\": [2, 4, 5, 6, 7, 8, 9, 10, 11]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/usuarios/roles/GERENTE/permisos", "host": ["{{baseUrl}}"], "path": ["api", "usuarios", "roles", "GERENTE", "permisos"] }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
